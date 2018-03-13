@@ -9,7 +9,7 @@
 
 チュートリアル資料が `gh-pages` として公開されているので、併せて参照してください。
 
-* https://pages.github.com/yahoojapan/vespa-tutorial
+* https://yahoojapan.github.io/vespa-tutorial/
 
 ## ライセンス
 
