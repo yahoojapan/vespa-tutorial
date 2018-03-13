@@ -1,0 +1,31 @@
+#
+# Copyright 2018 Yahoo Japan Corporation.
+# Licensed under the terms of the MIT license.
+# See LICENSE in the project root.
+#
+version: "2"
+
+services:
+  elasticsearch:
+    build:
+      context: .
+    container_name: elasticsearch
+    hostname: elasticsearch
+    privileged: true
+    volumes:
+      - ./sample-apps:/es-sample-apps
+    ports:
+      - 9200:9200
+    networks:
+      elasticsearch-nw:
+    environment:
+      discovery.type: single-node
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.2.1
+    networks:
+      elasticsearch-nw:
+    ports:
+      - 5601:5601
+
+networks:
+  elasticsearch-nw:

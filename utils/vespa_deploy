@@ -1,0 +1,69 @@
+#!/bin/bash
+#
+# Copyright 2018 Yahoo Japan Corporation.
+# Licensed under the terms of the MIT license.
+# See LICENSE in the project root.
+#
+
+set -eu
+
+
+function usage {
+    cat <<EOF 1>&2
+usage: $0 [prepare CONFIG | activate]
+
+NOTE: you need root privilege to execute this script due to "docker-compose".
+
+ex) upload "basic" config (i.e., "sample-apps/config/basic") to the configurarion server.
+$ $0 prepare basic
+
+ex) enable the latest config in all application server.
+$ $0 activate
+EOF
+}
+
+function prepare {
+    config="/vespa-sample-apps/config/$1"
+    sudo docker-compose exec vespa1 /bin/bash -c "/opt/vespa/bin/vespa-deploy prepare ${config}"
+    return $?
+}
+
+function activate {
+    sudo docker-compose exec vespa1 /bin/bash -c "/opt/vespa/bin/vespa-deploy activate"
+    return $?
+}
+
+
+if [ $# -eq 0 ]; then
+    usage
+    exit 1
+fi
+
+# move to project directory to refer docker-compose.yml
+PROJ_DIR=$(cd $(dirname $0)/..; pwd)
+cd ${PROJ_DIR}
+
+action=$1
+case ${action} in
+    "prepare")
+        if [ $# -lt 2 ]; then
+            echo "<ERROR> the name of config is required with \"prepare\"" 1>&2
+            exit 1
+        fi
+        config=`basename $2`
+        if [ ! -d "${PROJ_DIR}/sample-apps/config/${config}" ]; then
+            echo "<ERROR> failed to find \"${PROJ_DIR}/sample-apps/config/${config}\"" 1>&2
+            exit 1
+        fi
+        prepare ${config}
+        ;;
+    "activate")
+        activate
+        ;;
+    *)
+        echo "<ERROR> unknown action: ${action}" 1>&2
+        exit 1
+        ;;
+esac
+
+exit $?

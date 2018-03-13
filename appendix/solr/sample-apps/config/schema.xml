@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright 2018 Yahoo Japan Corporation.
+  Licensed under the terms of the MIT license.
+  See LICENSE in the project root.
+-->
+<schema name="book" version="1.6">
+  <uniqueKey>id</uniqueKey>
+  <fieldType name="pint" class="solr.IntPointField" docValues="true"/>
+  <fieldType name="plong" class="solr.LongPointField" docValues="true"/>
+  <fieldType name="string" class="solr.StrField" sortMissingLast="true"/>
+  <fieldType name="text_ja" class="solr.TextField" autoGeneratePhraseQueries="false" positionIncrementGap="100">
+    <analyzer>
+      <tokenizer class="solr.JapaneseTokenizerFactory" mode="search"/>
+      <filter class="solr.JapaneseBaseFormFilterFactory"/>
+      <filter class="solr.CJKWidthFilterFactory"/>
+      <filter class="solr.JapaneseKatakanaStemFilterFactory" minimumLength="4"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+
+  <field name="id" type="string" multiValued="false" indexed="true" required="true" stored="true"/>
+  <field name="_version_" type="plong" indexed="true" stored="true"/>
+
+  <field name="default" type="text_ja" indexed="true" stored="false" multiValued="true"/>
+  <copyField source="title" dest="default"/>
+  <copyField source="desc" dest="default"/>
+
+  <field name="title" type="text_ja" indexed="true" stored="true" docValues="false"/>
+  <field name="desc" type="text_ja" indexed="true" stored="true" docValues="false"/>
+  <field name="price" type="pint" indexed="true" stored="false" docValues="true"/>
+  <field name="page" type="pint" indexed="true" stored="false" docValues="true"/>
+  <field name="genres" type="string" indexed="true" stored="false" docValues="true" multiValued="true"/>
+  <dynamicField name="reviews.*" type="pint" indexed="false" stored="false" docValues="true"/>
+</schema>

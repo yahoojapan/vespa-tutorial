@@ -1,0 +1,47 @@
+#
+# Copyright 2018 Yahoo Japan Corporation.
+# Licensed under the terms of the MIT license.
+# See LICENSE in the project root.
+#
+search book {
+
+    document book {
+
+        field language type string {
+            indexing: "ja" | set_language
+        }
+
+        field title type string {
+            indexing: summary | index
+            summary-to: simple_set, detail_set
+        }
+
+        field desc type string {
+            indexing: summary | index
+            summary-to: detail_set
+        }
+
+        field price type int {
+            indexing: summary | attribute
+            summary-to: simple_set, detail_set
+        }
+
+        field page type int {
+            indexing: summary | attribute
+        }
+
+        field genres type array<string> {
+            indexing: summary | attribute
+            summary-to: detail_set
+        }
+
+        field reviews type weightedset<string> {
+            indexing: summary | attribute
+        }
+
+    }
+
+    fieldset default {
+        fields: title, desc
+    }
+}

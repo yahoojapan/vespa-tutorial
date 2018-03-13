@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Copyright 2018 Yahoo Japan Corporation.
+  Licensed under the terms of the MIT license.
+  See LICENSE in the project root.
+-->
+<services version="1.0">
+
+  <admin version="2.0">
+    <adminserver hostalias="node1"/>
+    <configservers>
+      <configserver hostalias="node1"/>
+    </configservers>
+    <logserver hostalias="node1"/>
+    <slobroks>
+      <slobrok hostalias="node1"/>
+    </slobroks>
+  </admin>
+
+  <container id="container" version="1.0">
+    <component id="jp.co.yahoo.vespa.language.lib.kuromoji.KuromojiLinguistics"
+               bundle="kuromoji-linguistics">
+      <config name="language.lib.kuromoji.kuromoji">
+        <mode>search</mode>
+        <ignore_case>true</ignore_case>
+      </config>
+    </component>
+    <document-api/>
+    <document-processing/>
+    <search/>
+    <nodes>
+      <node hostalias="node1"/>
+      <node hostalias="node2"/>
+      <node hostalias="node3"/>
+    </nodes>
+  </container>
+
+  <content id="book" version="1.0">
+    <redundancy>2</redundancy>
+    <documents>
+      <document type="book" mode="index"/>
+      <document-processing cluster="container"/>
+    </documents>
+    <nodes>
+      <node hostalias="node1" distribution-key="0"/>
+      <node hostalias="node2" distribution-key="1"/>
+      <node hostalias="node3" distribution-key="2"/>
+    </nodes>
+  </content>
+
+</services>

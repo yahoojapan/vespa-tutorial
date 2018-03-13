@@ -1,0 +1,306 @@
+////
+Copyright 2018 Yahoo Japan Corporation.
+Licensed under the terms of the MIT license.
+See LICENSE in the project root.
+////
+
+[[update]]
+= Vespa と更新
+include::_include.adoc[]
+
+このセクションでは、Vespa にドキュメントを登録する方法について見ていきます。
+
+[[update_request]]
+== 更新リクエスト
+
+Vespa では更新リクエストは以下のように
+http://docs.vespa.ai/documentation/reference/document-json-format.html[JSON]
+を用いて記述します。
+
+[NOTE]
+====
+ここで紹介しているフォーマットは後述の Client を用いて一括更新を行うケースを想定しています。
+====
+
+[source, json]
+----
+{
+  {
+    "put": "id:book:book::foo",
+    "fields": {
+      ...
+    }
+  },
+  {
+    "update": "id:book:book::bar",
+    "fields": {
+      ...
+    }
+  },
+  {
+    "remove": "id:book:book::foo"
+  },
+  ...
+}
+----
+
+各ドキュメントの先頭に記載された `put`、`update`、`remove`はそれぞれ追加、更新、削除の操作を意味しており、
+それぞれ値として対象のドキュメント ID を指定します。
+
+[[update_request_docid]]
+=== ドキュメント ID
+
+ドキュメント ID のフォーマットは以下のように定義されています (
+http://docs.vespa.ai/documentation/documents.html[Documents]
+)。
+
+[source]
+----
+id:<namespace>:<document-type>:<key/value-pairs>:<user-specified>
+----
+
+ドキュメント ID の各要素はそれぞれ以下のような意味があります。
+
+[options="header", cols="2,1,7"]
+|====
+^| 要素 ^| 必須? ^| 意味
+| namespace ^| o | ドキュメントの名前空間、複数ユーザで Vespa をシェアしていたりするときに混在しないように付与します。
+| document-type ^| o | 対象のインデックス名、`searchdefinitions` で定義した `document` の識別子のこと。
+| key/value-pairs ^|   | ドキュメントを特定のbucket (i.e., ノード) に偏らせたいときに指定します。
+| user-specified ^| o | ユーザ指定のユニークな ID を指定します。
+|====
+
+例えば、book インデックスに "foo" という ID で登録する場合は以下のように指定します。
+
+[source]
+----
+id:book:book::foo
+----
+
+[NOTE]
+====
+`namespace` は (おそらく) 任意の値を付けることが可能ですが、
+通常の運用では `document-type` と同じものを指定すればいいかと思います。
+====
+
+[TIP]
+====
+`key/value=pairs` は `id:book:book:n=0:foo` もしくは `id:book:book:g=bar:foo` のように、
+`n=NUM` か `g=GROUP` のように指定します。
+`n=NUM` と指定した場合は `NUM` の数値が、
+`g=GROUP` と指定した場合は `GROUP` の文字列から生成されたハッシュ値がドキュメント分散で利用されます。
+より詳細な情報は
+http://docs.vespa.ai/documentation/content/buckets.html#document-to-bucket-distribution[こちら]
+を参照してください。
+====
+
+[[update_request_put]]
+=== put
+
+`put` は新規ドキュメントの追加もしくは上書きを行います。
+以下のように対象のフィールドとその値のペアを `fields` の要素として定義していきます。
+
+[source, json]
+----
+{
+  "put": "id:book:book::foo",
+  "fields": {
+    "title": "fizz buzz",
+    ...
+  }
+}
+----
+
+各フィールドの値の書き方は、対応するフィールドのスキーマ定義によって以下のように変わります(
+http://docs.vespa.ai/documentation/reference/document-json-put-format.html[Document JSON format - Put]
+)。
+
+[source, json]
+----
+// 文字列型 (string)
+"title": "fizz buzz"
+
+// 数値型 (integer, long, byte, float, double)
+"price": 3000
+
+// 配列型 (ここでは array<string> の例)
+"genres": [
+  "foo",
+  "bar"
+]
+
+// 辞書型 (ここでは weightedset<string> の例)
+"reviews": {
+  "foo": 100,
+  "bar": 50
+}
+----
+
+[TIP]
+====
+Vespa の配列型フィールドでは feed 上での定義順が保持されたままインデックスされます。
+上の例の場合、`["foo", "bar"]` という順序が登録後も記録されており、
+グルーピングやスコア計算などで配列への番号アクセスが可能となっています。
+====
+
+[NOTE]
+====
+`weightedset` の値は `integer` で固定なので注意。
+この値は各要素の重み (デフォルト値は `100`) に対応しており、後述するランキングでのスコア計算に影響してきます。
+====
+
+[[update_request_update]]
+=== update
+
+`update` は既存ドキュメントの部分更新を行います。
+以下のように対象のフィールドとそこへの操作のペアを `fields` の要素として定義していきます。
+
+[source, json]
+----
+{
+  "update": "id:book:book::foo",
+  "fields": {
+    "title": {
+      "assign": "buzz fizz"
+    }
+  }
+}
+----
+
+上記例の `assign` の部分は更新方法の指定を行っており、以下の3つが指定できます (
+http://docs.vespa.ai/documentation/reference/document-json-update-format.html[Document JSON format - Update]
+)。
+
+[options="header", cols="1,4"]
+|====
+^| 方法 ^| 動作
+| assign | フィールドの値を指定した値で上書きします。
+| add | フィールドに指定した値を追加します (配列型や辞書型で利用可能)。
+| remove | 指定したフィールドの値を削除します。
+|====
+
+[[update_request_remove]]
+=== remove
+
+`remove` は既存ドキュメントの削除を行います。
+`remove` ではドキュメント ID のみが必要なため、`fields` のような追加の要素の定義は不要です。
+
+[source, json]
+----
+{
+  "remove": "id:book:book::foo"
+}
+----
+
+[TIP]
+====
+インデックスから全ドキュメントを削除したい場合は、Vespa のサービスを停止した状態で
+http://docs.vespa.ai/documentation/reference/vespa-cmdline-tools.html#vespa-remove-index[vespa-remove-index]
+を叩くことで全削除できます。
+====
+
+[[update_document]]
+== ドキュメントの更新
+
+Vespa では更新リクエストの投げ方には以下のような2つの方法が用意されています。
+
+* http://docs.vespa.ai/documentation/document-api.html[Document Operation API]
+* http://docs.vespa.ai/documentation/vespa-http-client.html[Vespa Java Feeding Client]
+
+本ドキュメントでは、後者の Client を用いた方法でドキュメントの登録を行います。
+
+[NOTE]
+====
+実運用では、一括更新が可能な Client (
+http://docs.vespa.ai/documentation/reference/vespa-feeder.html[vespa-feeder]
+) を利用する方が一般的かと思います。
+====
+
+[[update_document_client]]
+=== Client の実行方法
+
+Vepsa では Client プログラムを実行ラッパーとして
+https://github.com/vespa-engine/vespa/blob/master/vespaclient-java/src/main/sh/vespa-feeder.sh[vespa-feeder]
+というコマンドが提供されています。
+
+`vespa_feeder` では以下のように、引数として更新リクエストの `json` ファイルをわたすことで Vespa へのドキュメントの登録が行えます。
+
+[source, bash]
+----
+$ vespa_feeder documents.json
+----
+
+[[update_document_sample]]
+=== サンプルデータの登録
+
+チュートリアルでは、サンブルデータとして前述の `book` インデックス向けに以下のようなドキュメントが用意されています。
+
+[source, bash]
+----
+$ cat sample-apps/feed/book-data-put.json
+[
+  {
+    "put": "id:foo:book:g=foo:vespa_intro",
+    "fields": {
+      "title": "ゼロから始めるVespa入門",
+      "desc": "話題のOSS検索エンジン、Vespaの使い方を初心者にもわかりやすく解説します",
+      "price": 1500,
+      "page": 200,
+      "genres": [
+        "コンピュータ"
+        "検索エンジン",
+        "Vespa"
+      ],
+      "reviews": {
+        "quality": 40,
+        "readability": 90,
+        "cost": 80
+      }
+    }
+  },
+...
+----
+
+まず、前節で起動した `vespa1` にログインします。
+
+[source, bash]
+----
+$ sudo docker-compose exec vespa1 /bin/bash
+----
+
+次に、マウントされている `/vespa-sample-apps` 配下にあるサンプルデータを `vespa-feeder` を用いて登録します。
+
+[source, bash]
+----
+[root@vespa1 /]# vespa-feeder /vespa-sample-apps/feed/book-data-put.json
+
+
+Messages sent to vespa (route default) :
+----------------------------------------
+PutDocument:	ok: 13 msgs/sec: 46.93 failed: 0 ignored: 0 latency(min, max, avg): 212, 219, 215
+----
+
+これでドキュメントの登録は完了です。
+試しに以下のコマンドで検索を行うと、
+`"totalCount":13` と登録されたドキュメントが返却されることが確認できます。
+
+[source, bash]
+----
+[root@vespa1 /]# curl 'http://localhost:8080/search/?query=sddocname:book'
+{"root":{"id":"toplevel","relevance":1.0,"fields":{"totalCount":13}, ...
+----
+
+[TIP]
+====
+`sddocname:book` は `book` インデックスのドキュメント全体について検索することを意味しています。
+SolrやElasticSearchでいうところの `q=\*:*` みたいなイメージです。
+====
+
+[NOTE]
+====
+feed されたドキュメントはレスポンスが返った時点で検索から見えるようになります。
+また、トランザクションログのディスクへの書き出しの周期はOS依存となっていて、典型的には30秒程度で反映されます。
+詳しくは
+http://docs.vespa.ai/documentation/content/consistency.html[Vespa consistency model]
+を参照してください。
+====

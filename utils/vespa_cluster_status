@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+#
+# Copyright 2018 Yahoo Japan Corporation.
+# Licensed under the terms of the MIT license.
+# See LICENSE in the project root.
+#
+
+import argparse
+import json
+import urllib2
+from collections import OrderedDict
+
+VESPA_URL = "http://localhost:19050"
+
+
+def call_api(path):
+    """
+    @see http://docs.vespa.ai/documentation/content/api-state-rest-api.html
+    """
+    res = urllib2.urlopen(VESPA_URL + path.replace("\\/", "/"))
+    return json.loads(res.read(), object_pairs_hook=OrderedDict)
+
+
+def get_cluster_status(cluster, services):
+    cluster_res = call_api("/cluster/v2/{cluster}".format(cluster=cluster))
+
+    stat = {}
+
+    if "distributor" in services:
+        # distributor
+        distributor_res = call_api(cluster_res["service"]["distributor"]["link"])
+        distributor_stat = OrderedDict()
+        for node_id, node_link in distributor_res["node"].iteritems():
+            node_res = call_api(node_link["link"])
+            distributor_stat[node_id] = {
+                "status": node_res["state"]["generated"]["state"]
+            }
+        stat["distributor"] = distributor_stat
+
+    if "storage" in services:
+        # storage
+        storage_res = call_api(cluster_res["service"]["storage"]["link"])
+        storage_stat = OrderedDict()
+        for node_id, node_link in storage_res["node"].iteritems():
+            node_res = call_api(node_link["link"])
+            node_stat = {
+                "status": node_res["state"]["generated"]["state"],
+                "bucket-count": 0,
+                "unique-document-count": 0,
+                "unique-document-total-size": 0
+            }
+            for partition_id, partition_link in node_res.get("partition", {}).iteritems():
+                partition_res = call_api(partition_link["link"])
+
+                node_stat["bucket-count"] +=  partition_res["metrics"]["bucket-count"]
+                node_stat["unique-document-count"] += partition_res["metrics"]["unique-document-count"]
+                node_stat["unique-document-total-size"] += partition_res["metrics"]["unique-document-total-size"]
+            storage_stat[node_id] = node_stat
+        stat["storage"] = storage_stat
+
+    return stat
+
+
+def print_distributor_status(stat):
+    print "| node | status      |"
+    print "|------|-------------|"
+    for node_id, node_stat in stat["distributor"].iteritems():
+        print "| {n:>4} | {s:<11} |".format(
+            n=node_id,
+            s=node_stat["status"]
+        )
+
+
+def print_storage_status(stat):
+    print "| node | status      | bucket-count | uniq-doc-count | uniq-doc-size |"
+    print "|------|-------------|--------------|----------------|---------------|"
+    for node_id, node_stat in stat["storage"].iteritems():
+        print "| {n:>4} | {s:<11} | {bc:>12} | {udc:>14} | {uds:>13} |".format(
+            n=node_id,
+            s=node_stat["status"],
+            bc=node_stat["bucket-count"],
+            udc=node_stat["unique-document-count"],
+            uds=node_stat["unique-document-total-size"]
+        )
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="vespa_cluster_status",
+                                     formatter_class=argparse.RawTextHelpFormatter,
+                                     description="""An utility for checking status of a vespa cluster by using cluster APIs.
+
+Please see the following link for details of cluster APIs.
+> http://docs.vespa.ai/documentation/content/api-state-rest-api.html
+""")
+    parser.add_argument("cluster",
+                        help="A name of a target cluster")
+    parser.add_argument("-t", "--type", choices=["distributor", "storage", "all"], default="all",
+                        help="A service type to show (default: %(default)s)")
+    args = parser.parse_args()
+
+    service_types = ["distributor", "storage"]
+    if args.type != "all":
+        service_types = [args.type]
+
+    # extract all status
+    stat = get_cluster_status(args.cluster, service_types)
+
+    # print results
+    for service_type in service_types:
+        print "=== status of {service} ===\n".format(service=service_type)
+        globals()["print_{service}_status".format(service=service_type)](stat)
+        print "\n"
+
+
+if __name__ == "__main__":
+    main()

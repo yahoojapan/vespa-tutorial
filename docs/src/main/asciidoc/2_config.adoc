@@ -1,0 +1,626 @@
+////
+Copyright 2018 Yahoo Japan Corporation.
+Licensed under the terms of the MIT license.
+See LICENSE in the project root.
+////
+
+[[config]]
+= Vespa の設定
+include::_include.adoc[]
+
+このセクションでは、Vespa の具体的な設定方法について見ていきます。
+
+[NOTE]
+====
+複数ノードを使ったクラスタの構成については
+<<6_clustering.adoc#clustering,Vespa とクラスタリング>>
+を参照してください。
+====
+
+[[config_file]]
+== 設定ファイル
+
+Vespa の設定ファイルは以下のようなディレクトリ構成で定義されます。
+
+[source, bash]
+----
+myconfig/
+|- hosts.xml
+|- services.xml
+|- searchdefinitions/
+|  |- myindex.sd
+|  `- ...
+|- components/
+|  |- myplugin.jar
+|  `- ...
+`- search/query-profiles/
+   `- myprofile.xml
+----
+
+各設定ファイルにはそれぞれ以下のような役割があります。
+
+[options="header", cols="1,4"]
+|====
+^| 設定ファイル ^| 役割
+| http://docs.vespa.ai/documentation/reference/hosts.html[hosts.xml] | Vespa クラスタに所属する host 名の一覧。
+| http://docs.vespa.ai/documentation/reference/services.html[services.xml] | Vespa で起動するサービスの定義。
+| http://docs.vespa.ai/documentation/reference/search-definitions-reference.html[searchdefinitions] | Vespa で扱うインデックスの定義。
+| components | Vespa で利用するプラグイン (`jar` ファイル)。
+| http://docs.vespa.ai/documentation/reference/query-profile-reference.html[query-profiles] | 検索クエリに付与するデフォルトパラメタの定義。
+|====
+
+このうち最低限必要となるのは `hosts.xml`、`services.xml`、`searchdefinitions` の3つです。
+
+[[config_file_hosts]]
+=== hosts.xml
+
+`hosts.xml` には Vespa クラスタに所属するホスト名の定義を記述します。
+例えば、チュートリアルの `sample-apps/config/basic/hosts.xml` では以下のように記述されています。
+
+[source, xml]
+----
+<?xml version="1.0" encoding="utf-8" ?>
+<hosts>
+  <host name="vespa1">
+    <alias>node1</alias>
+  </host>
+</hosts>
+----
+
+上記例のように、`hosts.xml` ではノードのホスト名を `name` 属性で、
+後述の `services.xml` で参照されるエイリアス名を `alias` 要素でそれぞれ定義します。
+
+[TIP]
+====
+`alias` は一つのホストに対して複数定義できます。例えば以下のように役割毎に `alias` を定義することで、
+`services.xml` との対応を明確にできます。
+
+[source, xml]
+---
+<host name="vespa1">
+  <alias>search1</alias>
+  <alias>docproc1</alias>
+  <alias>content1</alias>
+</host>
+---
+====
+
+[[config_file_services]]
+=== services.xml
+
+`services.xml` には Vespa の各ノードがどのようなサービスを起動するかの設定を記述します。
+Vespa のサービスは
+http://docs.vespa.ai/documentation/reference/services-admin.html[admin]、
+http://docs.vespa.ai/documentation/reference/services-container.html[container]、
+http://docs.vespa.ai/documentation/reference/services-content.html[content]
+の3つに大別されます
+
+image::vespa_architecture.jpg[width=900, align="center"]
+
+[TIP]
+====
+サービスを含めて Vespa で起動されるプロセスの一覧は以下のページに記載されています。
+
+* http://docs.vespa.ai/documentation/reference/files-processes-and-ports.html[Files, processes and ports]
+
+なお、Vespa は `C\++` と `Java` の2つの言語で書かれた複数のプロセスが通信し合うことで動作しています。
+大雑把に分けると、`admin` と `container` は `Java` のコード、`content` は `C++` のコードで実装されています。
+====
+
+[NOTE]
+====
+実際は他にもサービスがいますが、ここでは動作上必要な前述の3つのみに対象を絞って説明します。
+他のサービスの設定については
+http://docs.vespa.ai/documentation/reference/services.html[公式ドキュメント]
+を参照してください。
+====
+
+[[config_file_services_admin]]
+==== admin
+
+Vespa クラスタの管理サービスで、
+チュートリアルの `sample-apps/config/basic/services.xml` では以下のように記述されています。
+
+[source, xml]
+----
+  <admin version="2.0">
+    <adminserver hostalias="node1"/>
+    <configservers>
+      <configserver hostalias="node1"/>
+    </configservers>
+    <logserver hostalias="node1"/>
+    <slobroks>
+      <slobrok hostalias="node1"/>
+    </slobroks>
+  </admin>
+----
+
+それぞれの要素は以下のようなサービスを意味しています。
+
+[options="header", cols="1,4"]
+|====
+^| 要素 ^| 役割
+| adminserver | 管理ノード本体を担当するサーバで、admin コマンドの実行ノードになります (たぶん)。
+| configservers | ZooKeeper に対応するサーバ群で、設定ファイルの管理を行います。複数ノードを指定することで冗長化が可能です。
+| logserver | Vespa のログ収集を担当するサーバで、Vespa クラスタ内の全サービスのログをアーカイブします。
+| slobroks | `slobrok` は Service location broker の略で、各サービスのロケーション情報を管理します。
+|====
+
+[NOTE]
+====
+これ以外にも ` cluster-controllers`、`filedistribution` および `monitoring` という要素があります。
+詳しくは http://docs.vespa.ai/documentation/reference/services-admin.html[公式ドキュメント] を参照してください。
+====
+
+[[config_file_services_container]]
+==== container
+
+Vespa のフロントエンドに対応するサービスで、
+チュートリアルの `sample-apps/config/basic/services.xml` では以下のように記述されています。
+
+[source, xml]
+----
+  <container id="container" version="1.0">
+    <component id="jp.co.yahoo.vespa.language.lib.kuromoji.KuromojiLinguistics"
+               bundle="kuromoji-linguistics">
+      <config name="language.lib.kuromoji.kuromoji">
+        <mode>search</mode>
+        <ignore_case>true</ignore_case>
+      </config>
+    </component>
+    <document-api/>
+    <document-processing/>
+    <search/>
+    <nodes>
+      <node hostalias="node1"/>
+    </nodes>
+  </container>
+----
+
+`container` はユーザからの検索リクエストや更新リクエストを受け付ける層に対応しています。
+上記の設定の場合、セクションの中身は大きく以下の3つのグループに分解できます。
+
+* `component`
+* `document-api`, `document-processing`, `search`
+* `nodes`
+
+`component` は追加モジュールの定義で、
+ここでは日本語の形態素解析器に対応する `KuromojiLinguistics` というモジュールを追加しています。
+
+[TIP]
+====
+より具体的には、`component` で定義されたクラスのインスタンスが Vespa の DI コンテナにデプロイされるイメージです。
+`KuromojiLinguistics` は言語に対応するインタフェースである `Linguistics` を継承したクラスであり、
+Vespa のコード上で `Lingusitics` を Inject している箇所に差し込まれます。
+====
+
+[IMPORTANT]
+====
+`KuromojiLinguistics` を有効にするには別途 `jar` ファイルを入手して配置する必要があります。
+詳しくは
+<<config_deploy_tokenizer,日本語トークナイザの配置>>
+で述べます。
+====
+
+`document-api`、`document-processing` および `search` はコンテナ上に起動する各種サービスに対応しており、
+それぞれ以下のような機能を有効化します。
+
+[options="header", cols="1,4"]
+|====
+^| 要素 ^| 機能
+| document-api | 更新リクエストのための http://docs.vespa.ai/documentation/document-api.html[Document API] を有効にします。
+| document-processing | 更新対象のドキュメントに対する加工処理 (`DocumentProcessorChain`) を有効にします。
+| search | 検索リクエストのための http://docs.vespa.ai/documentation/reference/search-api-reference.html[Search API] を有効化します。
+|====
+
+[TIP]
+====
+デフォルトでは `8080` ポートにて API が提供されますが、
+以下のように `http` セクションを定義することでポート番号を変更できます。
+
+[source, xml]
+----
+    <http>
+      <server id="server" port="8983"/>
+    </http>
+----
+====
+
+[IMPORTANT]
+====
+Vespa の https://github.com/vespa-engine/sample-apps/tree/master/basic-search[公式チュートリアル] の設定では
+`document-processing` が定義されていませんが、日本語処理を行う場合は `document-processing` の定義が必須となります。
+これは、`document-processing` が定義されることで Vespa にて
+https://github.com/vespa-engine/vespa/blob/master/docprocs/src/main/java/com/yahoo/docprocs/indexing/IndexingProcessor.java[IndexingProcessor]
+が有効となり、この中で形態素解析が実行されるため (たぶん)。
+====
+
+`nodes` ではこのコンテナ定義を適用するノードの一覧を記述しています。
+チュートリアルのサンプルでは全ノードに対して同一の設定を適用していますが、
+ノード毎に `container` セクションを別々に定義することで個別に設定を行うことも可能です。
+
+[IMPORTANT]
+====
+`container` を複数定義する場合は `id` 属性 (コンテナの識別子) が被らないように注意してください。
+====
+
+[[config_file_services_content]]
+==== content
+
+Vespa のインデックス本体を持つノードで、
+チュートリアルの `sample-apps/config/basic/services.xml` では以下のように記述されています。
+
+[source, xml]
+----
+  <content id="book" version="1.0">
+    <redundancy>1</redundancy>
+    <documents>
+      <document type="book" mode="index"/>
+      <document-processing cluster="container"/>
+    </documents>
+    <nodes>
+      <node hostalias="node1" distribution-key="0"/>
+    </nodes>
+  </content>
+----
+
+`redundancy` はドキュメントの冗長数のことで、インデックス中にドキュメントの複製をいくつ保持するかを指定します。
+
+[NOTE]
+====
+Vespa ではインデックスを `bucket` という単位に分割し、
+それぞれを指定された冗長数に応じてクラスタ内に分配することで冗長性を担保しています。
+このため、Solr や ElasticSearch のような shard/replica 方式に比べてデータの分割が細かくなっています。
+詳しくは
+<<6_clustering.adoc#clustering_distrib,ドキュメントの分散>>
+で紹介します。
+====
+
+`documents` はインデックスの具体的な定義に対応する設定で、参照するスキーマ定義および前処理の参照先を指定しています。
+`document` 要素の `type` は後述の `searchdefitions` に記述されたスキーマ定義の識別子を指定しています。
+また、`mode` はインデックスの保持方法を選択しており、通常の全文検索の場合は `mode=index` となります。
+`document-processing` では対応する前処理が実行される `container` の識別子を指定します (ここでは前述の "container" が対応)。
+
+[TIP]
+====
+`document` は複数定義が可能で、複数の異なるインデックスを保持できます。
+====
+
+`nodes` は `container` と同じように構築対象のノードを指定しています。
+`distribution-key` はドキュメントを分散させるときの配置先決めに利用される値で、
+全てのノードで異なるキーとなるように設定します。
+
+[IMPORTANT]
+====
+ノードの追加・削除で `nodes` の設定が変わるとき、
+既存のノードに割り当てられている `distribution-key` は変更しないでください。
+例えば、
+
+[source, xml]
+----
+    <nodes>
+      <node hostalias="node1" distribution-key="0"/>
+      <node hostalias="node2" distribution-key="1"/>
+      <node hostalias="node3" distribution-key="2"/>
+    </nodes>
+----
+
+という3ノード構成から "node2" を外す場合、新しい設定は以下のようになります。
+
+[source, xml]
+----
+    <nodes>
+      <node hostalias="node1" distribution-key="0"/>
+      <node hostalias="node3" distribution-key="2"/>
+    </nodes>
+----
+====
+
+[[config_file_searchdefinitions]]
+=== searchdefinitions
+
+http://docs.vespa.ai/documentation/search-definitions.html[searchdefinitions]
+では Vespa の検索に関する定義のことで、`.sd` という拡張子のファイルとなっています。
+`searchdefinitions` の中身は独自のフォーマットで書かれており、具体的には以下のような情報が記載されています。
+
+* スキーマ定義 (http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#document[document])
+* 検索対象のフィールド群のエイリアス定義 (http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#fieldset[fieldset])
+* リランキングのためのモデル定義 (http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#rank-profile[rank-profile])
+
+ここでは `document` と `fieldset` の2つについて説明します (モデル定義については
+<<5_ranking.adoc#ranking,Vespa とランキング>>
+で説明)。
+
+[IMPORTANT]
+====
+`searchdefinitions` のファイル名は、以下の例のように `search` セクションの識別子と揃える必要があります。
+
+[source]
+----
+$ cat book.sd <1>
+search book {
+  ...
+}
+----
+
+<1> `search book` と揃えて `book.sd` とします
+====
+
+[NOTE]
+====
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html[公式ドキュメント]
+を見ると分かるように、実際にはもっと色々な定義が可能ですが、ここではよく使う項目に対象を絞っています。
+====
+
+[[config_file_searchdefinitions_document]]
+==== document
+
+`document` はスキーマ定義に対応する項目で、
+チュートリアルの `sample-apps/config/basic/searchdefinitions/book.sd` では以下のように記述されています。
+
+[source]
+----
+    document book {
+
+        field language type string {
+            indexing: "ja" | set_language
+        }
+
+        field title type string {
+            indexing: summary | index
+            summary-to: simple_set, detail_set
+        }
+
+        field desc type string {
+            indexing: summary | index
+            summary-to: detail_set
+        }
+
+        field price type int {
+            indexing: summary | attribute
+            summary-to: simple_set, detail_set
+        }
+
+        field page type int {
+            indexing: summary | attribute
+        }
+
+        field genres type array<string> {
+            indexing: summary | attribute
+            summary-to: detail_set
+        }
+
+        field reviews type weightedset<string> {
+            indexing: summary | attribute
+        }
+
+    }
+----
+
+各 `field` 要素はスキーマに存在するフィールドの定義に対応しています。
+ただし、一番上の `language` だけは特殊で、ドキュメントが日本語 (`ja`) であることを明示的に宣言しています。
+
+`field` では以下のように名称 (`name`)、型 (`type`)、処理方法 (`indexing`) の3つの項目でフィールドを定義するのが基本となります。
+
+[NOTE]
+====
+`summary-to` については
+<<4_search.adoc#search_query_summary,summary>>
+を参照してください。
+====
+
+[source]
+----
+field ${name} type ${type} {
+    indexing: ${indexing}
+}
+----
+
+`type` には代表的なものとして以下のような型が指定できます (詳細は
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#field_types[こちら]
+を参照)。
+
+[options="header", cols="1,4"]
+|====
+^| 型 ^| 説明
+| string | 文字列型、処理方法によって形態素解析の有無が変わります。
+| integer | 32-bit 整数の数値型、単一の値を保持します。
+| long | 64-bit 整数の数値型、単一の値を保持します。
+| byte | 8-bit 整数の数値型、単一の値を保持します。
+| float | 単精度浮動小数点型、単一の値を保持します。
+| double | 倍精度浮動小数点型、単一の値を保持します。
+| array<element-type> | 配列型、`element-type` で指定された型を複数保持します。
+| weightedset<element-type> | 辞書型、`element-type` を key、`integer` を value とする複数の key-value を保持します。
+|====
+
+`indexing` には以下の3つが指定できます (詳細は
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#indexing[こちら]
+を参照)。
+
+[options="header", cols="1,4"]
+|====
+^| 処理 ^| 説明
+| attribute | 値をオンメモリ上に展開します (ソートやグルーピングで用いるフィールドに指定)。
+| index | 形態素解析してインデックスに登録します (`string` と組み合わせる)。
+| summary | レスポンスに指定されたフィールドの値を付与します
+|====
+
+チュートリアルの例のように、これらの設定は `summary | index` と組み合わせて利用できます。
+ただし、`attribute` と `index` は対の関係にあるため、通常は `attribute` と `index` を同時に指定することはないです。
+基本的に `index` は文章のような長い文字列型にのみ指定し、
+それ以外の数値型やキーワードのような単一文字列については `attribute` を用います。
+
+[TIP]
+====
+より正確にいうと、`indexing` は
+http://docs.vespa.ai/documentation/reference/advanced-indexing-language.html[indexing-language]
+と呼ばれる機能に対応します。
+====
+
+[[config_file_searchdefinitions_fieldset]]
+==== fieldset
+
+`fieldset` は複数のフィールドを束ねたエイリアスの定義に利用します。
+チュートリアルの `sample-apps/config/basic/searchdefinitions/book.sd` では以下のように記述されています。
+
+[source]
+----
+    fieldset default {
+        fields: title, desc
+    }
+----
+
+上記のように定義した場合、検索時に `query=default:foo` と検索フィールドとして
+`fieldset` の名称を指定することで、紐付いているフィールド全体に対して検索したのと同じ意味になります。
+
+[TIP]
+====
+`default` という `fieldset` には
+「検索時に明示的にフィールドされなかった場合にデフォルトで参照されるフィールド」
+という特別な意味があります。
+====
+
+[[config_deploy]]
+== Vespa へのデプロイ
+
+設定ファイルの Vespa への反映には `vespa-deploy` というコマンドを用います。
+ここでは、シングルノード用の設定である `sample-apps/config/basic` を実際にデプロイする手順を追っていきます。
+
+[IMPORTANT]
+====
+事前に
+<<1_setup.adoc#setup_tutorial,チュートリアル環境の構築>>
+の手順に従って Vespa を起動しておいてください。
+====
+
+[[config_deploy_tokenizer]]
+=== 日本語トークナイザの配置
+
+現在の Vespa は日本語トークナイザを内包していないため、
+対応する `jar` を別途入手して `components` 配下に配置する必要があります。
+<<config_file_services_container,container>> の節で述べたように、ここでは `KuromojiLinguistics` を利用します。
+
+`KuromojiLinguistics` は
+{kl_github_url}[vespa-kuromoji-linguistics]
+にて公開されている Vespa のプラグインで、
+文書のトークン分けに https://www.atilika.com/ja/kuromoji/[Kuromoji] を利用する実装となっています。
+
+https://www.atilika.com/ja/kuromoji/[Kuromoji] はJavaで実装されたオープンソースの日本語形態素解析エンジンで、
+http://lucene.apache.org/solr/[Solr]
+や
+https://www.elastic.co/jp/products/elasticsearch[ElasticSearch]
+でも日本語トークナイザとして採用されています。
+
+[NOTE]
+====
+`KuromojiLingusitcs` 自体の詳細については
+{kl_github_url}[vespa-kuromoji-linguistics]
+を参照してください。
+====
+
+本チュートリアルでは、事前に用意した以下のスクリプトを用いて `kuromoji-linguistics.jar` をセットアップします。
+
+[source, bash]
+----
+$ sample-apps/plugin/setup.sh <1>
+
+$ ls sample-apps/plugin/ <2>
+kuromoji-linguistics.jar  setup.sh  vespa-kuromoji-linguistics
+----
+
+<1> リポジトリからソースをダウンロードし、パッケージをビルド
+<2> `kuromoji-lingustics.jar` としてプラグインが配置されます
+
+[TIP]
+====
+チュートリアルでは、`config` 配下にあるそれぞれの設定の
+`components/kuromoji-lingusitics.jar`
+から
+`sample-apps/plugin/kuromoji-lingusitics.jar`
+へシンボリックリンクを貼る構成となっています。
+====
+
+[[config_deploy_prepare]]
+=== 設定ファイルのアップロード
+
+起動した Vespa ノードのうち、`vespa1` にログインします。
+
+[source, bash]
+----
+$ sudo docker-compose exec vespa1 /bin/bash
+----
+
+チュートリアル環境では Docker コンテナの `/vespa-sample-apps` に `sample-apps/` がマウントされています。
+
+[source, bash]
+----
+[root@vespa1 /]# ls /vespa-sample-apps/
+config  feed  plugin
+----
+
+以下のコマンドを実行し、`/vespa-sample/apps/config/basic` を `configserver` にアップロードします。
+
+[source, bash]
+----
+[root@vespa1 /]# vespa-deploy prepare /vespa-sample-apps/config/basic/
+Uploading application '/vespa-sample-apps/config/basic/' using http://vespa1:19071/application/v2/tenant/default/session?name=basic
+Session 2 for tenant 'default' created.
+Preparing session 2 using http://vespa1:19071/application/v2/tenant/default/session/2/prepared
+Session 2 for tenant 'default' prepared.
+----
+
+このように、設定ファイルの Vespa へのアップロードは次のコマンドで実行します。
+
+[source, bash]
+----
+vespa-deploy prepare ${config}
+----
+
+もし、設定ファイルに不備がある場合、`prepare` は失敗し、エラーログがコンソールに出力されます。
+
+[TIP]
+====
+上記コマンドは、内部的には以下の2つのコマンドを実行しています。
+
+[source, bash]
+----
+# vespa-deploy upload /vespa-sample-apps/config/basic/
+# vespa-deploy prepare
+----
+====
+
+[[config_deploy_activate]]
+=== 設定ファイルの反映
+
+次に、以下のコマンドを実行し、アップロードした設定を実際に Vespa に反映させます。
+
+[source, bash]
+----
+[root@vespa1 /]# vespa-deploy activate
+Activating session 2 using http://vespa1:19071/application/v2/tenant/default/session/2/active
+Session 2 for tenant 'default' activated.
+Checksum:   a60feb4256b6f0051b462252b6b398ad
+Timestamp:  1518510769258
+Generation: 2
+----
+
+これにより、各 Vespa に最新の設定が行き渡り、しばらくすると対応するサービスが起動します。
+試しに `8080` ポートから検索を行うと、0件 (`"totalCount":0`) と結果が返ってきます。
+
+[source, bash]
+----
+[root@vespa1 /]# curl 'http://localhost:8080/search/?query=foo'
+{"root":{"id":"toplevel","relevance":1.0,"fields":{"totalCount":0},"coverage":{"coverage":100,"documents":0,"full":true,"nodes":0,"results":1,"resultsFull":1}}}
+----
+
+`Ctrl-D` でコンテナを抜けて `utils/vespa_status` を実行すると、
+先程 `NG` だった vespa1 が `OK` に変わっていることが確認できます。
+
+[source, bash]
+----
+$ utils/vespa_status
+configuration server ...   [ OK ]
+application server (vespa1) ...   [ OK ]
+application server (vespa2) ...   [ NG ]
+application server (vespa3) ...   [ NG ]
+----

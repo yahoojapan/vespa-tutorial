@@ -1,0 +1,14 @@
+////
+Copyright 2018 Yahoo Japan Corporation.
+Licensed under the terms of the MIT license.
+See LICENSE in the project root.
+////
+
+// common attributes
+:author: Yahoo Japan Corporation.
+:copyright: Copyright (C) 2018 Yahoo Japan Corporation. All Rights Reserved.
+
+:imagesdir: images
+
+:github_url: https://github.com/yahoojapan/vespa-tutorial
+:kl_github_url: https://github.com/yahoojapan/vespa-kuromoji-linguistics

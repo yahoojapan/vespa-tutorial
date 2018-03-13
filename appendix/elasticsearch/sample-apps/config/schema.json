@@ -1,0 +1,47 @@
+{
+  "settings" : {
+    "number_of_shards" : 1
+  },
+
+  "mappings": {
+    "book": {
+      "dynamic": false,
+      "dynamic_templates": [
+        {
+          "reviews": {
+            "match_mapping_type": "string",
+            "match": "reviews.*",
+            "mapping": {
+              "type": "integer"
+            }
+          }
+        }
+      ],
+      "properties": {
+        "default": {
+          "type": "text",
+          "analyzer": "kuromoji"
+        },
+        "title": {
+          "type": "text",
+          "analyzer": "kuromoji",
+          "copy_to": "default"
+        },
+        "desc": {
+          "type": "text",
+          "analyzer": "kuromoji",
+          "copy_to": "default"
+        },
+        "price": {
+          "type": "integer"
+        },
+        "page": {
+          "type": "integer"
+        },
+        "genres": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}

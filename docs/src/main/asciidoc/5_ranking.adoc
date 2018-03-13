@@ -1,0 +1,1652 @@
+////
+Copyright 2018 Yahoo Japan Corporation.
+Licensed under the terms of the MIT license.
+See LICENSE in the project root.
+////
+
+[[ranking]]
+= Vespa とランキング
+include::_include.adoc[]
+
+このセクションでは、
+http://docs.vespa.ai/documentation/ranking.html[Vespa のランキング]
+について見ていきます。
+
+[[ranking_phase]]
+== ランキングの流れ
+
+Vespa のランキングは以下の図のように大きく3つのフェーズで構成されます。
+
+image::vespa_ranking_phase.jpg[width=900, align="center"]
+
+[[ranking_phase_match]]
+=== match-phase
+
+`match-phase` は実際のランキング計算の前に存在するフェーズで、
+特定のフィールド値に基いて候補文書を選択します。
+選択の基準には、例えば最終スコアと相関のあるフィールド値 (ex. クリック数とか) や、
+事前にフィード時に計算した静的スコアなどが一般的に利用されます。
+
+Vespa ではこれに加え、特定のフィールド値について候補文書を多様化 (`diversity`) する機能もこのフェーズで実行できます。
+これは、例えば「`match-phase` で選択された文書には最低でも10個の異なるカテゴリの文書を含める」のように、
+検索候補のバリエーションを担保する操作のことです。
+
+[TIP]
+====
+`match-phase` は候補文書が非常に多い、もしくは `first-phase` のスコア式のコストが高い、
+などの理由で次段の `first-phase` の計算コストが問題となる場合のフィルタリングとして利用されます。
+====
+
+[[ranking_phase_first]]
+=== first-phase
+
+`first-phase` では計算コストの相対的に小さいスコア計算 (検索モデル) を用いて、
+次段の `second-phase` で評価対象となる候補文書を絞り込みます。
+最終的なソートは次段の `second-phase` が担当するため、
+`first-phase` では 「文書群の中からいかに上位候補を網羅して選択するか (再現率、`recall` の最大化)」
+が重要となります。
+
+`first-phase` で利用するスコア計算は、
+一般的には `second-phase` で用いるスコア計算と相関があるような式を選びます。
+Vespaでは、クエリと文書との関連度をざっくり計算するヒューリスティックな軽量関数 (
+http://docs.vespa.ai/documentation/reference/nativerank.html[nativeRank]
+) が提供されており、
+デフォルトではそれが `first-phase` のスコア計算で利用されます。
+
+なお、多くの場合、`first-phase` で絞り込まれる件数は `100-1000` 程度のオーダとなります。
+
+[TIP]
+====
+このように軽量モデルと重量モデルの2段階でランキングを行う手法は `two-phase ranking` とVespaでは呼ばれています。
+====
+
+[[ranking_phase_second]]
+=== second-phase
+
+`second-phase` では `first-phase` で選ばれた候補文書を再度スコア計算し、最終的な順位付けを行います。
+このフェーズで選ばれた上位の文書が実際にユーザに返却されるレスポンスとなるため、
+`second-phase` では「文書群の中からいかに真に関連する文書を選択するか (適合率、`precision` の最大化)」
+が重要となります。
+
+`second-phase` は前述の通りその精度がユーザのレスポンスに直結するため、
+一般的に機械学習を用いた複雑で高精度なモデルがスコア計算で利用されます。
+
+[TIP]
+====
+検索でよく使われるモデルとしては
+http://xgboost.readthedocs.io/en/latest/model.html[アンサンブル木]
+があげられます。
+====
+
+[[ranking_profile]]
+== rank-profile
+
+Vespa ではランキングは
+<<2_config.adoc#config_file_searchdefinitions,searchdifinitions>>
+の中に
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#rank-profile[rank-profile]
+として定義します。
+例えば、チュートリアルの
+`sample-apps/config/ranking/searchdefinitions/book.sd`
+では以下のように3つのランキングが定義されています。
+
+[source]
+----
+    rank-profile basic inherits default {
+
+        first-phase {
+            expression: nativeRank
+        }
+
+    }
+
+    rank-profile price_boost inherits basic {
+
+        rank-properties {
+            query(bias) : 0.1
+        }
+
+        macro price_boost() {
+            expression: file:price_boost.expression
+        }
+
+        macro boosted_score(bias) {
+            expression {
+                (1.0 - bias) * firstPhase
+                + bias * price_boost
+            }
+        }
+
+        second-phase {
+            expression: boosted_score(query(bias))
+            rerank-count: 3
+        }
+
+    }
+
+    rank-profile reviews_prefer inherits default {
+
+        first-phase {
+            expression: dotProduct(reviews, prefer)
+        }
+
+    }
+----
+
+`rank-profile` で定義される代表的な要素として以下のようなものがあります。
+
+[options="header", cols="1,4"]
+|====
+^| 要素 ^| 役割
+| rank-properties | ランク計算で利用する種々のパラメタを定義します。
+| macro | 計算式を一つにまとめたマクロを定義します。
+| first-phase | `first-phase` で利用するスコア計算を定義します。
+| second-phase | `second-phase` で利用するスコア計算を定義します。
+| inherits | 他の `rank-profile` の定義を継承します。
+|====
+
+[NOTE]
+====
+本チュートリアルでは `match-phase` については説明しません。
+興味のある人は公式ドキュメントの
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#match-phase[match-phase]
+を参照してください。
+====
+
+[[ranking_profile_rank-properties]]
+=== rank-properties
+
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#rankproperties[rank-properties]
+には各種組み込み素性の設定を以下のフォーマットで指定します。
+
+[source]
+----
+rank-properties {
+    <featurename>.<configuration-property>: <value>
+}
+----
+
+`rank-properties` で指定可能なパラメタは公式ドキュメントの以下のページに記載があります。
+
+* http://docs.vespa.ai/documentation/ranking.html#using-query-variables[Ranking]
+* http://docs.vespa.ai/documentation/reference/nativerank.html[nativeRank reference]
+* http://docs.vespa.ai/documentation/reference/rank-feature-configuration.html[Rank feature configuration]
+
+[NOTE]
+====
+指定可能な `rank-properties` を1ページでまとめた公式ドキュメントがどうもないように見えます。。。
+====
+
+チュートリアルの例では、以下のように `query` という検索クエリから動的に値を指定する素性について、
+そのデフォルト値の定義が書かれています。
+
+[source]
+----
+        rank-properties {
+            query(bias) : 0.1 <1>
+        }
+----
+
+<1> `query(bias)` という素性のデフォルト値を `0.1` に設定
+
+[[ranking_profile_macro]]
+=== macro
+
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#macro-rank[macro]
+ではスコア計算をまとめたマクロを定義します。
+共通ロジックをマクロとして切り出して使いまわすことで、`rank-profile` の見通しがよくなります。
+また、後述の継承機能を利用することで、ベースの `rank-profile` に共通ロジックのマクロをまとめておき、
+継承先の `rank-profile` でそれらを参照する、といった使い方も可能です。
+
+チュートリアルの例では、以下のように `price_boost` と `boosted_score` という2つのマクロが定義されています。
+
+[source]
+----
+        macro price_boost() { <1>
+            expression: file:price_boost.expression
+        }
+
+        macro boosted_score(bias) { <2>
+            expression {
+                (1.0 - bias) * firstPhase
+                + bias * price_boost
+            }
+        }
+----
+
+<1> 引数なしマクロとして `price_boost` を定義
+<2> 引数ありマクロとして `boosted_score(bias)` を定義
+
+なお、上記例の `boosted_score` のように、マクロには引数を定義することも可能です。
+
+[[ranking_profile_first-phase]]
+=== first-phase
+
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#firstphase-rank[first-phase]
+では前述の `first-phase` での具体的なスコア計算を定義します。
+
+チュートリアルの例では、以下のよう `expression` として数式の定義がされています。
+
+[source]
+----
+        first-phase {
+            expression: nativeRank <1>
+        }
+----
+
+<1> `first-phase` のスコアとして `nativeRank` を用いる。
+
+なお、`first-phase` を明示的に指定しなかった場合、デフォルトでは `nativeRank` がスコア計算として利用されます。
+
+[[ranking_profile_second-phase]]
+=== second-phase
+
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#secondphase-rank[second-phase]
+では前述の `second-phase` での具体的なスコア計算を定義します。
+
+チュートリアルの例では、以下のように `first-phase` とほぼ同じ見た目で定義がされています。
+
+[source]
+----
+        second-phase {
+            expression: boosted_score(query(bias)) <1>
+            rerank-count: 3 <2>
+        }
+----
+
+<1> `second-phase` のスコアとして `boosted_score(query(bias))` を用いる。
+<2> `first-phase` の返却値のうち上位3件を `second-phase` の対象とする。
+
+`second-phase` で指定される `rerank-count` は、
+`first-phase` のスコアでソートされたドキュメントの上位何件を `second-phase` の評価対象とするかを指定しています。
+`rerank-count` のデフォルト値は `100` で、`100-1000` 程度の値が使われる印象です (計算コストと相談)。
+
+[TIP]
+====
+もし、`rerank-count: 100` に対して `count=200` のようにレスポンスの要求件数が多かった場合、
+最終的に返却されるレスポンスは、
+
+* `1-100` : `second-phase` でリランキングされた結果
+* `101-200` : `first-phase` でソートされた結果
+
+という順番となり、足りない分は `first-phase` のスコアを用いて補填されます。
+====
+
+[[ranking_profile_inherits]]
+=== inherits
+
+`inherits` は `rank-profile` を定義するときに指定する要素で、別の `rank-profile` からの継承を指定します。
+
+チュートリアルの例では、以下のように継承が定義されています。
+
+[source]
+----
+    rank-profile basic inherits default { <1>
+        ...
+    }
+
+    rank-profile price_boost inherits basic { <2>
+        ...
+    }
+
+    rank-profile reviews_prefer inherits default { <3>
+        ...
+    }
+----
+
+<1> `default` を継承して `basic` を定義
+<2> `basic` を継承して `price_boost` を定義
+<3> `default` を継承して `reviews_prefer` を定義
+
+上記例で出てくる `default` は Vespa がデフォルトで定義している `rank-profile` です。
+
+[IMPORTANT]
+====
+Vespa の継承はいわゆる `override` の方式で行われます。
+例えば、以下のような継承関係があった場合 (`properties` はテキトーです)、
+
+[source]
+----
+    rank-profile profile_A inherit default {
+        rank-properties {
+            "foo" : 1.0
+        }
+    }
+
+    rank-profile profile_B inherit profile_A {
+        rank-properties {
+            "bar" : 0.5
+        }
+    }
+----
+
+最終的な `profile_B` の見た目は以下のようになります。
+
+[source]
+----
+    rank-profile profile_B inherit default {
+        rank-properties {
+            "bar" : 0.5
+        }
+    }
+----
+
+上記例のように、`profile_A` が持っていた `"foo" : 1.0` という設定は `profile_B` には継承されず、
+`rank-properties` 全体が上書き (`orveride`) されます。
+====
+
+[[ranking_expression]]
+== ランク式
+
+Vespaでは上記例の中でもでてきたように、
+スコア式を数式 (ランク式) として記述できます。
+
+[[ranking_expression_profile]]
+=== rank-profile上での書き方
+
+`rank-profile` 上では、`expression` というキーの後に数式を書きます。
+書き方としては以下の3種類があります。
+
+[source]
+----
+expression: 1+2 <1>
+
+expression { <2>
+  1
+  +
+  2
+}
+
+expression: file: myfunc.expression <3>
+----
+
+<1> ワンライナーでランク式を記述
+<2> 複数行に分けてランク式を記述
+<3> ランク式を外部ファイル (`myfunc.expression`) に書いて読み込み
+
+3つ目の外部ファイルを利用する場合、`myfunc.expression` は以下のように `searchdefitions` の階層に配置する必要があります。
+
+[source]
+----
+myconfig/
+`- searchdefinitions/
+   |- myindex.sd
+   |- myfunc.expression
+   `- ...
+
+$ cat myconfig/searchdefinitions/myfunc.expression
+1+2
+----
+
+[TIP]
+====
+Vespa 内部では
+https://llvm.org/[LLVM]
+を用いてランク式をコンパイルしています。そのため、実行時は高速にスコア計算が可能です (コード的にはたぶん
+https://github.com/vespa-engine/vespa/tree/master/eval/src/vespa/eval/eval[この辺]
+)。
+====
+
+[IMPORTANT]
+====
+Vespa は外部ファイルも `configserver` にアップロードして配布します。
+そのため、非常に大きなモデルファイルを上げる場合は
+`configserver` (i.e., `ZooKeeper`) のバッファサイズ上限に引っかかる可能性があるので注意してください。
+====
+
+[[ranking_expression_syntax]]
+=== ランク式の記法
+
+Vespa では、
+http://docs.vespa.ai/documentation/reference/ranking-expressions.html[Ranking Expressions]
+にあるように、
+
+* 四則演算 (`+`, `-`, `*`, `/`)
+* 数学関数 (`cos`, `sin`, `tan`, etc...)
+* 条件式 (`if(cond, true, false)`)
+
+といった記法を使うことができます。
+
+[[ranking_expression_syntax_arithmetic]]
+==== 四則演算
+
+以下のように通常のプログラミングのように記述します。
+
+[source]
+----
+a + b - c * d / (e + f)
+----
+
+[TIP]
+====
+剰余算は `fmod(x,y)` という数学関数を用いて書きます。
+====
+
+[[ranking_expression_syntax_math]]
+==== 数学関数
+
+Vespa のランク式では以下のような数学関数が利用できます (意味は通常のプログラミングでの関数と同じです)。
+
+[options="header", cols="1,4"]
+|====
+^| 関数 ^| 動作
+| cosh(x) | `x` に対する `cosh` の値を返します。
+| sinh(x) | `x` に対する `sinh` の値を返します。
+| tanh(x) | `x` に対する `sinh` の値を返します。
+| cos(x) | `x` に対する `cos` の値を返します。
+| sin(x) | `x` に対する `sin` の値を返します。
+| tan(x) | `x` に対する `tan` の値を返します。
+| acos(x) | `x` に対する `acos` の値を返します。
+| asin(x) | `x` に対する `asin` の値を返します。
+| atan2(y, x) | `y/x` に対する `atan` の値を返します。
+| atan(x) | `x` に対する `atan` の値を返します。
+| exp(x) | `x` に対する `exp` の値 (`e^x`) を返します。
+| ldexp(x, exp) | `x * 2^exp` の値を返します。
+| log10(x) | `x` に対する常用対数 (基底が `10`) の値を返します。
+| log(x) | `x` に対する自然対数 (基底が `e`) の値を返します。
+| pow(x, y) | `x^y` の値を返します。
+| sqrt(x) | `x` に対する平方根の値を返します。
+| ceil(x) | `x` より大きい最小の整数の値を返します。
+| fabs(x) | `x` の絶対値を返します。
+| floor(x) | `x` より小さい最大の整数の値を返します。
+| isNan(x) | `x` が `NaN` の場合に `1.0` を、それ以外の場合に `0.0` を返します。
+| fmod(x, y) | `x / y` の余り (`x % y`) の値を返します。
+| min(x, y) | `x` と `y` のうち小さい方の値を返します。
+| max(x, y) | `x` と `y` のうち大きい方の値を返します。
+|====
+
+[[ranking_expression_syntax_condition]]
+==== 条件式
+
+Vespa のランク式では条件式は以下のような3項演算子として記述します。
+
+```
+if (expression1 operator expression2, trueExpression, falseExpression)
+```
+
+第一項は条件式が入り、以下のような条件演算子が使えます。
+
+[options="header", cols="1,4"]
+|====
+^| 演算子 ^| 動作
+| x \<= y | `x` が `y` 以下の場合に `true`。
+| x < y | `x` が `y` 未満の場合に `true`。
+| x == y | `x` と `y` が等しい場合に `true`。
+| x ~= y | `x` と `y` がほぼ等しい場合に `true`。
+| x >= y | `x` が `y` 以上の場合に `true`。
+| x > y | `x` が `y` より大きい場合に `true`。
+| x in [a,b,c,...] | `x` が `[a,b,c,...]` のセットの中のいずれかと等しい場合に `true`。
+|====
+
+[TIP]
+====
+`~=` は2つの値が単精度浮動小数点数 (`float`) の精度で等しいかを判定します (
+https://github.com/vespa-engine/vespa/blob/master/vespalib/src/vespa/vespalib/util/approx.h[コード])。
+====
+
+第二項は条件式が `true` の時に実行されるランク式が、
+第三項は条件式が `false` の時に実行されるランク式がそれぞれ入ります。
+
+[[ranking_expression_feature]]
+=== 組み込み素性
+
+Vespa では以下のドキュメントのようにランク式を記述するときに役に立つ様々な組み込み素性 (ランク素性) が定義されています。
+
+* http://docs.vespa.ai/documentation/reference/rank-features.html[Rank feature reference]
+
+ここでは代表的なものをピックアップして簡単に紹介します。
+
+[[ranking_expression_feature_nativeRank]]
+==== nativeRank
+
+`nativeRank` は Vespa の中でよく用いられるヒューリスティックなスコア計算式で、
+後述の `nativeFieldMatch`、`nativeProximity`、および `nativeAttributeMatch` の加重平均として計算されます (
+http://docs.vespa.ai/documentation/reference/nativerank.html#nativeRank[数式]
+)。
+
+加重平均で用いる各素性の重みは `rank-properties` で調整可能で、デフォルト値は以下のようになっています。
+
+[source]
+----
+rank-properties {
+    nativeRank.fieldMatchWeight: 100.0
+    natievRank.proximityWeight: 25.0
+    nativeRank.attributeMatchWeight: 100.0
+}
+----
+
+なお、`nativeRank` はデフォルトでは検索クエリで指定された全てのフィールドが評価対象となります。
+特定のフィールドに限定した結果が欲しい場合は、
+`nativeRank(title, desc)` のように引数に対象のフィールド名を列挙します。
+
+[[ranking_expression_feature_nativeFieldMatch]]
+==== nativeFieldMatch
+
+`nativeFieldMatch` は、
+トークナイズされるフィールド (`indexing: index`) を対象に、
+検索クエリとフィールドのマッチ具合を計算するヒューリスティック手法です (
+http://docs.vespa.ai/documentation/reference/nativerank.html#nativeFieldMatch[数式]
+)。
+
+`nativeFieldMatch` は以下の2つのポイントでスコアが決まります。
+
+* 検索ワードがフィールド上でどれだけ先頭に出現したか (`firstOccBoost`)
+* 検索ワードがフィールド上でどれだけ多く出現したか (`numOccBoost`)
+
+最終スコアはこれら2つのスコアの加重平均を `0.0-1.0` に正規化した値となります。
+デフォルトでは2つのスコアは単純に同じ比重 (`0.5`) で結合されます。
+
+[source]
+----
+rank-properties {
+    nativeFieldMatch.firstOccurrenceImportance: 0.5
+}
+----
+
+なお、`nativeFieldMatch` も `nativeRank` と同じように、引数にフィールド名を指定できます。
+
+[TIP]
+====
+Vespa ではスコア計算時に各単語 (`term`) 自体の重みも考慮されます。
+単語の重みには以下の2種類の重みが存在しまう。
+
+[options="header", cols="1,4"]
+|====
+^| 種類 ^| 意味
+| significance | インデックス全体での単語の文書頻度の基づく重み。
+| weight | クエリで付与された重みで、`query=title:入門!150` の `150` のこと。
+|====
+
+`significance` は
+https://github.com/vespa-engine/vespa/blob/master/searchlib/src/vespa/searchlib/features/documenttestutils.cpp#L78-L89[このコード]
+のように、
+`min_df=0.0000001` を最小文書頻度として `significance=0.5 + 0.5 * log(df)/log(min_df)` のように計算されます。
+====
+
+[[ranking_expression_feature_nativeProximity]]
+==== nativeProximity
+
+`nativeProximity` は、
+トークナイズされるフィールド (`indexing: index`) を対象に、
+検索クエリでの単語群がどの程度隣接して出現するかを計算するヒューリスティック手法です (
+http://docs.vespa.ai/documentation/reference/nativerank.html#nativeProximity[数式]
+)。
+
+`nativeProximity` では以下の2つのポイントでスコアが決まります。
+
+* 検索ワードのセットがフィールド上で順方向にどれだけ隣接していたか
+* 検索ワードのセットがフィールド上で逆方向にどれだけ隣接していたか
+
+基本的に順方向で隣接していた方がスコアが高くなるように設計されています。
+最終スコアは2つのスコアの加重平均を `0.0-1.0` に正規化した値となります。
+デフォルトでは2つのスコアは単純に同じ比重 (`0.5`) で結合されます。
+
+また、検索クエリの単語群のうち、どこまでの範囲のペアを評価対象にするか
+(`window` 幅、 `slidingWindowSize`)
+も `rank-properties` で指定ができます。
+デフォルトは `4` で、例えば `a b c d e` という5単語場合、`window` 幅が `4` を超える `a e` のペアは評価対象外となります。
+
+[source]
+----
+rank-properties {
+    nativeProximity.proximityImportance: 0.5
+    nativeProximity.slidingWindowSize: 4
+}
+----
+
+なお、`nativeProximity` も `nativeRank` と同じように、引数にフィールド名を指定できます。
+
+[TIP]
+====
+単語ペアの重みは前述の `significance` および `weight` 以外に、
+2つのペアの接続性 (`connectedness`) が考慮されます。
+`connectedness` はデフォルトは全て `0.1` で固定となっており、
+値を変更した場合は Vespa 用のプラグインを作って検索リクエストの変換処理で変更する、といった手順が必要です。
+====
+
+[[ranking_expression_feature_nativeAttributeMatch]]
+==== nativeAttributeMatch
+
+`nativeAttributeMatch` は
+トークナイズされないフィールド (`indexing: attribute`) を対象に、
+検索クエリとフィールドのマッチ具合を計算するヒューリスティック手法です (
+http://docs.vespa.ai/documentation/reference/nativerank.html#nativeAttributeMatch[数式]
+)。
+
+`nativeAttributeMatch` のスコア計算では、単純に対象の単語のフィールドでの出現数がスコアに影響します。
+出現数の算出方法は、対象フィールドのタイプによって以下のように変化します。
+
+* weightedset : マッチした単語の重みの合計値
+* array : マッチした単語の数
+* single : マッチした単語の数 (つまり、`0` か `1`)
+
+最終的なスコアは単語に重みを元に `0.0-1.0` に正規化されます。
+
+なお、`nativeAttributeMatch` も `nativeRank` と同じように、引数にフィールド名を指定できます。
+
+[NOTE]
+====
+`nativeAttributeMatch` では出現数は `0-255` の範囲を取ることを想定しており、
+そのため数回程度の出現回数ではスコアが非常に小さくなりがち (`0.1` 未満) なので注意。
+====
+
+[[ranking_expression_feature_attribute]]
+==== attribute
+
+`attribute` は
+フィールド値を参照するときに利用する素性です。
+名前のように、`attribute` で指定できるフィールドは `indexing: attribute` と指定されたものに限定されます。
+
+`attribute` ではフィールドの型によって以下のような呼び出し方ができます。
+
+[options="header", cols="2,3"]
+|====
+^| 素性 ^| 意味
+| attribute(name) | `name` フィールドの値。
+| attribute(name, n) | `array` なフィールドの `n` 番目の値。
+| attribute(name, key).weight | `weightedset` なフィールドの `key` に対応する重み。
+| attribute(name, key).contains | `weightedset` なフィールドが `key` を含む場合は `1`、それ以外は `0`。
+| attribute(name).count | `array` 及び `weightedset` なフィールドの要素数。
+|====
+
+[IMPORTANT]
+====
+`attribute(name)` は対応するフィールドの値がドキュメントで設定されていない場合は `NaN` を返します。
+そのため、スコア計算で利用するときは *対象のフィールドの値がどのドキュメントにも必ず存在する* ように注意してください。
+====
+
+[[ranking_expression_feature_fieldMatch]]
+==== fieldMatch
+
+`fieldMatch` は
+一つのトークナイズされたフィールド (`indexing: index`) を対象に、
+http://docs.vespa.ai/documentation/reference/string-segment-match.html[segment match]
+と呼ばれるマッチング手法によって、クエリとフィールドのマッチ具合を評価する素性です。
+
+[TIP]
+====
+`fieldMatch` は `fieldMatch(title)` のように必ず一つのフィールドを指定する必要があります。
+====
+
+`segment match` では、
+http://docs.vespa.ai/documentation/img/reference/relevance/segment-example.png[公式ドキュメントの図]
+のようにフィールド全体から検索クエリの単語群が最も密に集まったところ (セグメント) を探索します。
+
+`fieldMatch` では以下のような要素がスコア計算に加味されます。
+
+* 各セグメントがどれだけ隣接しているか
+* 同一セグメント内でどれだけ単語が密に集まっているか
+* 選択されたセグメントの中での単語の出現順がクエリでの順番と揃っているか
+* フィールド全体で検索クエリの単語がどれだけ多く出現したか
+* 検索クエリの単語がフィールド全体の何割をカバーしたか
+* 検索クエリの単語のうち何割がフィールドに出現したか
+
+また、`fieldMatch` では評価の過程で計算された以下のような中間データも参照できます
+(以下は一部の例で、これ以外にもあります)。
+
+[options="header", cols="1,4"]
+|====
+^| 素性 ^| 意味
+| fieldMatch(name) | `fieldMatch` の最終スコア。
+| fieldMatch(name).proximity | セグメント内での単語の隣接度合いのスコア。
+| fieldMatch(name).completeness | 検索単語のクエリ及びフィールドのカバー率のスコア。
+| fieldMatch(name).orderness | 検索クエリと実際のフィールド上での出現順のスコア。
+| fieldMatch(name).relatedness | 検索クエリがどれだけ同一のセグメントに出現したかのスコア。
+| fieldMatch(name).earliness | 検索クエリがどれだけ先頭の方に出現したかのスコア。
+| fieldMatch(name).segmentProximity | 異なるセグメントがどれだけ隣接しているかのスコア。
+| fieldMatch(name).occurrence | 検索クエリの単語の出現数に基づくスコア。
+| fieldMatch(name).weight | フィールド中に出現した検索単語の `weight` の総和。
+| fieldMatch(name).significance | フィールド中に出現した検索単語の `significance` の総和。
+| fieldMatch(name).matches | フィールド中に出現した検索単語の出現数 (種類数かも)。
+|====
+
+`fieldMatch` はその動作を制御する様々なパラメタも定義されています。
+詳しくは
+http://docs.vespa.ai/documentation/reference/rank-feature-configuration.html[Rank feature configuration]
+を参照してください。
+
+[NOTE]
+====
+`segment match` でのセグメント分けはヒューリスティックな方法によって実行されており、
+必ずしも最適解になるわけではないです。
+====
+
+[IMPORTANT]
+====
+`fieldMatch` の処理は相対的に複雑で、`nativeRank` などに比べると計算コストが大きいため、
+特に `first-phase` で使用するときは注意してください。
+====
+
+[[ranking_expression_feature_attributeMatch]]
+==== attributeMatch
+
+`attributeMatch`
+は一つのトークナイズされていないフィールド (`indexing: attribute`) を対象に、
+検索クエリの単語とフィールドの値がどれだけ一致したかを評価する素性です。
+
+[TIP]
+====
+`attributeMatch` も `attributeMatch(genres)` のように必ず一つのフィールドを指定する必要があります。
+====
+
+`attributeMatch` は `fieldMatch` と名称が似ていますが、
+こちらは単純にマッチした単語の全体に対するカバー率のみがスコア計算に加味されます。
+また、`attributeMatch` では以下のような中間データも参照できます
+(以下は一部の例で、これ以外にもあります)。
+
+[options="header", cols="1,3"]
+|====
+^| 素性 ^| 意味
+| attributeMatch(name) | `attributeMatch` の最終スコア。
+| attributeMatch(name).completeness | 検索単語のクエリおよびフィールドのカバー率のスコア。
+| attributeMatch(name).weight | フィールド中に出現した検索単語の `weight` の総和。
+| attributeMatch(name).significance | フィールド中に出現した検索単語の `significance` の総和。
+| attributeMatch(name).matches | フィールド中に出現した検索単語の出現数 (種類数かも)。
+| attributeMatch(name).totalWeight | `weightedset` でマッチした値の重みの合計。
+| attributeMatch(name).averageWeight | `weightedset` でマッチした値の重みの平均。
+|====
+
+[[ranking_expression_feature_query]]
+==== query
+
+`query`
+は検索クエリから動的に値を指定するときに使用する素性です。
+`query` を利用する場合は、`rank-properties` に指定がない場合のデフォルト値を一緒に定義します。
+
+[source]
+----
+rank-properties {
+    query(gender): male
+    query(age) : 30
+}
+----
+
+検索クエリからは、以下の例のように
+http://docs.vespa.ai/documentation/reference/search-api-reference.html#ranking.features[ranking.features.featurename [rankfeature.featurename\]]
+というパラメタで指定します。
+
+[source]
+----
+search?language=ja&query=foo&rankfeature.query(gender)=female&rankfeature.query(age)=25
+----
+
+[[ranking_expression_feature_dotProduct]]
+==== dotProduct
+
+`dotProduct`
+は `weightedest` なフィールドと内積を計算するときに利用する素性です。
+`dotProduct` は以下のように第1引数に対象のフィールドを、第2引数に検索クエリから与えるベクトルの名称を指定します。
+
+[source]
+----
+dotProduct(reviews, prefer) <1> <2>
+----
+
+<1> `weightedset` な `reviews` フィールドに対して適用
+<2> `prefer` というベクトルとの内積を計算
+
+検索クエリでは以下のように
+http://docs.vespa.ai/documentation/reference/search-api-reference.html#ranking.properties[ranking.properties.propertyname [rankproperty.propertyname\]]
+というパラメタで指定します。値のベクトルは `json` 形式で指定します。
+
+[source]
+----
+search?language=ja&query=入門&rankproperty.dotProduct.prefer={quality:0.2, readability:0.5, cost:0.3}
+----
+
+[TIP]
+====
+似たような素性として `nativeDotProduct` というものがあります。
+こちらは引数として対象のフィールドのみをとり、
+内積計算のクエリ側の重みには `query` パラメタで指定された単語毎の重み (`foo!50` の `50`) が利用されます。
+====
+
+[NOTE]
+====
+`rankproperty.dotProduct.NAME=JSON` で指定する `JSON` は、
+一般的な `json` 形式と異なりkeyをダブルクオートでくくらないでそのまま記述します。
+====
+
+[[ranking_search]]
+== ランキングと検索
+
+Vespaでは検索クエリの
+http://docs.vespa.ai/documentation/reference/search-api-reference.html#ranking.profile[ranking.profile [ranking\]]
+というオプションを用いて、実際に適用する `rank-profile` を指定します。
+実際にチュートリアルデータを用いてその動作について見ていきます。
+
+[TIP]
+====
+Vespaではデフォルトで利用できる `ranking` として `default` と `unrank` の2つがあります。
+`default` は `first-phase` に `nativeRank` を用いるランキングで、`ranking` の指定がない場合のデフォルト値です。
+`unrank` は明示的にスコア計算をしないときに指定するプロファイルです。
+====
+
+<<2_config.adoc#config_deploy,Vespaへのデプロイ>>
+で説明した手順に従って新しい設定をVespaにデプロイします。
+
+[IMPORTANT]
+====
+事前に
+<<1_setup.adoc#setup_tutorial,チュートリアル環境の構築>>
+の手順に従ってVespaを起動して、
+<<3_update.adoc#update_document_sample,サンプルデータの登録>>
+まで完了している必要があります。
+====
+
+[source, bash]
+----
+$ sudo docker-compose exec vespa1 /bin/bash <1>
+
+[root@vespa1 /]# vespa-deploy prepare /vespa-sample-apps/config/ranking/ <2>
+Uploading application '/vespa-sample-apps/config/ranking/' using http://vespa1:19071/application/v2/tenant/default/session?name=ranking
+Session 3 for tenant 'default' created.
+Preparing session 3 using http://vespa1:19071/application/v2/tenant/default/session/3/prepared
+Session 3 for tenant 'default' prepared.
+
+[root@vespa1 /]# vespa-deploy activate <3>
+Activating session 3 using http://vespa1:19071/application/v2/tenant/default/session/3/active
+Session 3 for tenant 'default' activated.
+Checksum:   5d15aa7ef48459f19057915f1f8096dc
+Timestamp:  1519187200940
+Generation: 3
+----
+
+<1> `vespa1` のdockerコンテナにログイン
+<2> `/vespa-sample-apps/config/ranking/` をVespaにアップロード
+<3> 最新の設定をVespaに反映
+
+[[ranking_search_model]]
+=== チュートリアルのモデル
+
+ランキングを含む Vespa の設定は
+`sample-apps/config/ranking` に配置されています。
+`serchdefinitions/book.sd` では以下のような3つのプロファイルが定義されています。
+
+[[ranking_search_model_basic]]
+==== basic
+
+継承の例のために切り出した基底の `rank-profile` で、後述の `price_boost` のベースとなっています。
+中身は `default` と同じで、`first-phase` に `nativeRank` を指定しただけです。
+
+[[ranking_search_model_priceboost]]
+==== price_boost
+
+`first-phase` で得られた結果のうち、上位3位の結果を `price` の値でブーストしてリランキングする `rank-profile` です。
+
+[source]
+----
+    rank-profile price_boost inherits basic {
+
+        rank-properties {
+            query(bias) : 0.1
+        }
+
+        macro price_boost() {
+            expression: file:price_boost.expression
+        }
+
+        macro boosted_score(bias) {
+            expression {
+                (1.0 - bias) * firstPhase
+                + bias * price_boost
+            }
+        }
+
+        second-phase {
+            expression: boosted_score(query(bias))
+            rerank-count: 3
+        }
+
+    }
+----
+
+`price-boost` では、`boosted_score(bias)` マクロの中で
+`first-phase` のスコア (`firstPhase`) と価格ブースト値の `bias` に基づく加重平均を計算しています。
+`bias` の値は `query` 素性として検索時に変更できるようにしています。
+価格ブースト値は `price_boost()` マクロで定義されており、実際の定義は以下のように外部ファイルに記載されています。
+
+[source]
+----
+$ cat sample-apps/config/ranking/searchdefinitions/price_boost.expression
+1.0 - tanh(log10(attribute(price)/1000))
+----
+
+[TIP]
+====
+`price_boost.expression` で書かれている数式は、グラフにすると以下のような形になります。
+
+image::vespa_example_price_boost.jpg[width=500, align="center"]
+====
+
+[[ranking_search_model_reviewsprefer]]
+==== reviews_prefer
+
+ユーザの嗜好とドキュメントのレビュースコアの内積値を用いてリランキングをする `rank-profile` です。
+
+[source]
+----
+    rank-profile reviews_prefer inherits default {
+
+        first-phase {
+            expression: dotProduct(reviews, prefer)
+        }
+
+    }
+----
+
+このプロファイルは、ユーザの嗜好を `rankproperty.dotProduct.perfer=JSON` として検索時に与えることを想定しており、
+簡単なパーソナライズのような例となっています。
+
+[[ranking_search_compare]]
+=== 検索結果の比較
+
+まず、ベース設定 (`ranking=basic`) で検索をした場合、検索結果の上位3件は以下のようになります。
+
+[source, json]
+----
+search/?language=ja&query=入門&count=3&ranking=basic
+
+{
+  "root": {
+    "id": "toplevel",
+    "relevance": 1,
+    "fields": {
+      "totalCount": 3
+    },
+    "coverage": {
+      "coverage": 100,
+      "documents": 13,
+      "full": true,
+      "nodes": 0,
+      "results": 1,
+      "resultsFull": 1
+    },
+    "children": [
+      {
+        "id": "id:book:book::python_intro",
+        "relevance": 0.07987290045947507,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "Python本格入門",
+          "desc": "今話題のPythonの使い方をわかりやすく説明します",
+          "price": 2000,
+          "page": 450,
+          "genres": [
+            "コンピュータ",
+            "プログラミング",
+            "Python"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 80
+            },
+            {
+              "item": "cost",
+              "weight": 70
+            },
+            {
+              "item": "quality",
+              "weight": 50
+            }
+          ],
+          "documentid": "id:book:book::python_intro"
+        }
+      },
+      {
+        "id": "id:book:book::vespa_intro",
+        "relevance": 0.07984115307035042,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "ゼロから始めるVespa入門",
+          "desc": "話題のOSS検索エンジン、Vespaの使い方を初心者にもわかりやすく解説します",
+          "price": 1500,
+          "page": 200,
+          "genres": [
+            "コンピュータ",
+            "検索エンジン",
+            "Vespa"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 90
+            },
+            {
+              "item": "cost",
+              "weight": 80
+            },
+            {
+              "item": "quality",
+              "weight": 40
+            }
+          ],
+          "documentid": "id:book:book::vespa_intro"
+        }
+      },
+      {
+        "id": "id:book:book::java_intro",
+        "relevance": 0.06998285745781,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "サルでも分かるJava言語",
+          "desc": "Java超初心者におすすめのJava言語の入門書です",
+          "price": 1000,
+          "page": 150,
+          "genres": [
+            "コンピュータ",
+            "プログラミング",
+            "Java"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 90
+            },
+            {
+              "item": "cost",
+              "weight": 90
+            },
+            {
+              "item": "quality",
+              "weight": 30
+            }
+          ],
+          "documentid": "id:book:book::java_intro"
+        }
+      }
+    ]
+  }
+}
+----
+
+これを `price_boost` をランキングに指定して検索すると、以下のように価格の安いものが上位にくるように検索結果が変化します。
+
+[source, json]
+-----
+search/?language=ja&query=入門&count=3&ranking=price_boost
+
+{
+  "root": {
+    "id": "toplevel",
+    "relevance": 1,
+    "fields": {
+      "totalCount": 3
+    },
+    "coverage": {
+      "coverage": 100,
+      "documents": 13,
+      "full": true,
+      "nodes": 0,
+      "results": 1,
+      "resultsFull": 1
+    },
+    "children": [
+      {
+        "id": "id:book:book::java_intro",
+        "relevance": 0.162984571712029,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "サルでも分かるJava言語",
+          "desc": "Java超初心者におすすめのJava言語の入門書です",
+          "price": 1000,
+          "page": 150,
+          "genres": [
+            "コンピュータ",
+            "プログラミング",
+            "Java"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 90
+            },
+            {
+              "item": "cost",
+              "weight": 90
+            },
+            {
+              "item": "quality",
+              "weight": 30
+            }
+          ],
+          "documentid": "id:book:book::java_intro"
+        }
+      },
+      {
+        "id": "id:book:book::vespa_intro",
+        "relevance": 0.1544276910372906,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "ゼロから始めるVespa入門",
+          "desc": "話題のOSS検索エンジン、Vespaの使い方を初心者にもわかりやすく解説します",
+          "price": 1500,
+          "page": 200,
+          "genres": [
+            "コンピュータ",
+            "検索エンジン",
+            "Vespa"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 90
+            },
+            {
+              "item": "cost",
+              "weight": 80
+            },
+            {
+              "item": "quality",
+              "weight": 40
+            }
+          ],
+          "documentid": "id:book:book::vespa_intro"
+        }
+      },
+      {
+        "id": "id:book:book::python_intro",
+        "relevance": 0.14266011876532916,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "Python本格入門",
+          "desc": "今話題のPythonの使い方をわかりやすく説明します",
+          "price": 2000,
+          "page": 450,
+          "genres": [
+            "コンピュータ",
+            "プログラミング",
+            "Python"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 80
+            },
+            {
+              "item": "cost",
+              "weight": 70
+            },
+            {
+              "item": "quality",
+              "weight": 50
+            }
+          ],
+          "documentid": "id:book:book::python_intro"
+        }
+      }
+    ]
+  }
+}
+-----
+
+1件目のスコア (`relevance`) は `0.162984571712029` となっていますが、
+これは以下のように定義した式で計算した結果になっていることがわかります。
+
+[source]
+----
+price_boost() = 1.0 - tanh(log10(1000/1000))
+              = 1.0
+query(bias) = 0.1 (default)
+boosted_score(query(bias)) = boosted_score(0.1)
+                           = (1.0 - 0.1) * 0.06998285745781 + 0.1 * 1.0
+                           = 0.162984571712029
+----
+
+例えば、以下のクエリのように `query(bias) = 0.0` とすると、価格ブーストの値が無視され、
+初めの結果と同じになることが確認できます。
+
+[source, json]
+----
+search/?language=ja&query=入門&count=3&ranking=price_boost&rankfeature.query(bias)=0.0
+
+(`ranking=basic` の場合と同じ検索結果)
+----
+
+次に、以下のようにユーザの嗜好を `{quality:0.2, readability:0.5, cost:0.3}` として、
+`reviews_prefer` で検索すると以下のような結果が得られます。
+
+[source, json]
+----
+search/?language=ja&query=入門&count=3&ranking=reviews_prefer&rankproperty.dotProduct.prefer={quality:0.2, readability:0.5, cost:0.3}
+
+{
+  "root": {
+    "id": "toplevel",
+    "relevance": 1,
+    "fields": {
+      "totalCount": 3
+    },
+    "coverage": {
+      "coverage": 100,
+      "documents": 13,
+      "full": true,
+      "nodes": 0,
+      "results": 1,
+      "resultsFull": 1
+    },
+    "children": [
+      {
+        "id": "id:book:book::java_intro",
+        "relevance": 78,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "サルでも分かるJava言語",
+          "desc": "Java超初心者におすすめのJava言語の入門書です",
+          "price": 1000,
+          "page": 150,
+          "genres": [
+            "コンピュータ",
+            "プログラミング",
+            "Java"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 90
+            },
+            {
+              "item": "cost",
+              "weight": 90
+            },
+            {
+              "item": "quality",
+              "weight": 30
+            }
+          ],
+          "documentid": "id:book:book::java_intro"
+        }
+      },
+      {
+        "id": "id:book:book::vespa_intro",
+        "relevance": 77,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "ゼロから始めるVespa入門",
+          "desc": "話題のOSS検索エンジン、Vespaの使い方を初心者にもわかりやすく解説します",
+          "price": 1500,
+          "page": 200,
+          "genres": [
+            "コンピュータ",
+            "検索エンジン",
+            "Vespa"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 90
+            },
+            {
+              "item": "cost",
+              "weight": 80
+            },
+            {
+              "item": "quality",
+              "weight": 40
+            }
+          ],
+          "documentid": "id:book:book::vespa_intro"
+        }
+      },
+      {
+        "id": "id:book:book::python_intro",
+        "relevance": 71,
+        "source": "book",
+        "fields": {
+          "sddocname": "book",
+          "title": "Python本格入門",
+          "desc": "今話題のPythonの使い方をわかりやすく説明します",
+          "price": 2000,
+          "page": 450,
+          "genres": [
+            "コンピュータ",
+            "プログラミング",
+            "Python"
+          ],
+          "reviews": [
+            {
+              "item": "readability",
+              "weight": 80
+            },
+            {
+              "item": "cost",
+              "weight": 70
+            },
+            {
+              "item": "quality",
+              "weight": 50
+            }
+          ],
+          "documentid": "id:book:book::python_intro"
+        }
+      }
+    ]
+  }
+}
+----
+
+この例の場合、トップのドキュメントのスコア (`relevance`) は以下のように `reviews` の内積となっていることがわかります。
+
+[source]
+----
+dotProduct(reivews, prefer) = {quality: 30, readability: 90, cost: 90}
+                              * {quality:0.2, readability:0.5, cost:0.3}
+                            = 30 * 0.2 + 90 * 0.5 + 90 * 0.3
+                            = 6 + 45 + 27
+                            = 78
+----
+
+[[ranking_other]]
+== その他のトピック
+
+[[ranking_other_dump]]
+=== 素性値のダンプ
+
+検索の精度改善を行う場合、
+実際にユーザから得られたフィードバック (ex. クリック) と検索結果に表示されたドキュメントの情報を組み合わせて訓練データを作り、
+そこから機械学習を用いて新しいランキングモデルを学習する、
+といったサイクルを回すのが一般的です。
+このとき、検索結果のドキュメントについて、モデルで利用する素性が実際にどのような値であったかをログに残す必要があります。
+
+Vespa では、検索結果のレスポンスに素性の計算結果を付与する機能として
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#rankfeatures[rank-features]
+と
+http://docs.vespa.ai/documentation/reference/search-definitions-reference.html#summaryfeatures[summary-features]
+という2つが提供されています。
+
+[[ranking_other_dump_rankfeatures]]
+==== rank-features
+
+`rank-features` は素性のフルダンプを行う時に利用する機能です。検索クエリに以下のように
+http://docs.vespa.ai/documentation/reference/search-api-reference.html#ranking.listFeatures[ranking.listFeatures [rankfeatures\]]
+を指定すると有効になります。
+
+[source]
+----
+search/?language=ja&query=入門&count=3&ranking=price_boost&rankfeatures=true
+----
+
+上記クエリで検索をすると、レスポンスの各ドキュメントに `rankfeatures` という要素が新たに追加され、
+そこに Vespa で利用可能な全ての素性のダンプ情報が出力されます。
+
+[source, json]
+----
+          "rankfeatures": {
+            "attributeMatch(genres)": 0,
+            "attributeMatch(genres).averageWeight": 0,
+            "attributeMatch(genres).completeness": 0,
+            "attributeMatch(genres).fieldCompleteness": 0,
+            "attributeMatch(genres).importance": 0,
+            "attributeMatch(genres).matches": 0,
+            ...
+          }
+----
+
+マクロ定義のような自分で定義した素性を追加で出力したい場合は、
+以下のように `rank-profile` に `rank-features` という項目で出力したい素性の名前を列挙します。
+
+[source]
+----
+        rank-features {
+            rankingExpression(price_boost)
+        }
+----
+
+上記のように定義すると、`rankfeatures` の出力に上記の項目が追加されます。
+
+[source, json]
+----
+          "rankfeatures": {
+            ...
+            rankingExpression(price_boost)": 1,
+            ...
+          }
+----
+
+[TIP]
+====
+`rank-features` や後述の `summary-features` でマクロ定義を指定したい場合は、
+上記例のように `rankingExpression` でマクロをくくる必要があります。
+
+また、引数付きマクロについては指定できないようで、
+もし実際に検索で使った値をダンプしたい場合は引数なしマクロでくくるなどの工夫が必要です。
+====
+
+[NOTE]
+====
+`rank-features` では動的に決まる `query` 素性が反映されないように見えます。
+後述の `summary-features` だと `query` 素性は出力されます。
+====
+
+[IMPORTANT]
+====
+`rank-features` は上記の通り全ての可能な素性を計算してダンプするため、計算コストが非常に大きくレイテンシが悪化します。
+そのため、[red]#*サービスインしているような環境ではrank-featuresは使用しないでください。*#
+====
+
+[[ranking_other_dump_summaryfeatures]]
+==== summary-features
+
+`summary-features` は `rank-features` と同じようにレスポンスに素性の値を付与する機能ですが、
+こちらは指定された素性のみをレスポンスに付与する機能となります。
+
+`summary-features` は `rank-profile` に `summaryfeatures` という要素を追加することで有効になります。
+
+[source]
+----
+        summary-features {
+            nativeRank
+            query(bias)
+            rankingExpression(price_boost)
+        }
+----
+
+`summaryfeatures` が定義された `rank-profile` を指定して検索を行うと、
+以下のような項目がレスポンスに追加されます。
+
+[source]
+----
+          "summaryfeatures": {
+            "nativeRank": 0.06998285745781,
+            "query(bias)": 0.1,
+            "rankingExpression(price_boost)": 1,
+            "vespa.summaryFeatures.cached": 0
+          },
+----
+
+[[ranking_other_tensor]]
+=== テンソルを用いたスコア計算
+
+Vespa ではスコア計算の方法の一つとしてテンソル (ex. 行列) を用いた演算をサポートしています。
+テンソル演算はより複雑なランキングモデルを用いるときに必要となる概念で、
+代表的なユースケースとして
+https://ja.wikipedia.org/wiki/%E3%83%87%E3%82%A3%E3%83%BC%E3%83%97%E3%83%A9%E3%83%BC%E3%83%8B%E3%83%B3%E3%82%B0[ディープラーニング]
+を用いたモデルがあげられます。
+ここでは Vespa でのテンソル機能の概要について紹介します。
+
+[NOTE]
+====
+テンソルに関するドキュメントとして以下があります。
+
+* http://docs.vespa.ai/documentation/tensor-intro.html[Introduction to working with tensors in Vespa]
+* http://docs.vespa.ai/documentation/tensor-user-guide.html[Tensor User Guide]
+* http://docs.vespa.ai/documentation/reference/tensor.html[Tensor Evaluation Reference]
+====
+
+Vespa では、テンソルは以下のようなフォーマットで表現します。
+
+[source]
+----
+{ {x:0, y:0}:5.0, {x:1, y:1}:7.0 }
+----
+
+`x` と `y` はテンソルの次元を表す識別子で、上の例は具体的には以下のような行列を表現しています。
+
+image::vespa_tensor_example.jpg[width=300, align="center"]
+
+フィールド型としてテンソルを定義するときは、この次元の識別子を用いて以下のように定義します。
+
+[source]
+----
+field sparse_tensor type tensor(x{}, y{}) {  <1>
+    indexing: attribute | summary
+    attribute: tensor(x{}, y{})
+}
+
+field dense_tensor type tensor(x[], y[]) { <2>
+    indexing: attribute | summary
+    attribute: tensor(x[], y[])
+}
+----
+
+<1> 疎行列としてテンソルを定義
+<2> 密行列としてテンソルを定義
+
+[TIP]
+====
+次元の識別子は任意の名前を使用できます。
+そのため、例えば `input`、`hidden`、`output` のようにレイヤーにあわせた名称を付けることで、
+各次元の役割を明確にすることが可能です。
+====
+
+Vespa のテンソル演算は大きくわけて以下の5つの基本操作によって構成されます。
+
+[NOTE]
+====
+http://docs.vespa.ai/documentation/reference/tensor.html[公式ドキュメント]
+では基本操作として `rename` もありますが、これは次元の識別子の変更だけで、
+`relu` といった拡張操作から参照されないため除外しています。
+====
+
+[[ranking_other_tensor_map]]
+==== map
+
+`map` は `map(tensor, f(x)(expr))` のように2つの引数をとり、
+第1引数で与えられたテンソルの各要素に対して、第2引数のラムダ式で与えられた操作を適用する、という動作をします。
+
+例えば、行列の各要素を2倍するような操作は `map` を用いて以下のように記述します。
+
+[source]
+----
+t = {{x:0,y:0}: 3.0, {x:0,y:1}: 4.0, {x:1,y:0}: 5.0, {x:1,y:1}: 6.0}
+
+map(t, f(x)(x * 2)) = {{x:0,y:0}: 6.0, {x:0,y:1}: 8.0, {x:1,y:0}: 10.0, {x:1,y:1}: 12.0}
+----
+
+[[ranking_other_tensor_reduce]]
+==== reduce
+
+`reduce` は `reduce(tensor, aggregator, dim1, dim2, ...)` のような引数をとり、
+第1引数で与えられたテンソルについて、第2引数で与えられた `aggregator` を第3引数以降で与えられた成分方向に対して適用する、
+という動作をします (第3引数以降がない場合は全要素に対して適用)。
+
+例えば、先程の `x` と `y` の2つの次元を持つ行列に対して、 `x` 方向に総和を取ったベクトルを得る場合、
+以下のような式となります。
+
+[source]
+----
+t = {{x:0,y:0}: 3.0, {x:0,y:1}: 4.0, {x:1,y:0}: 5.0, {x:1,y:1}: 6.0}
+
+reduce(t, sum, x) = {{y:0}: 8.0, {y:1}: 10.0}
+----
+
+[[ranking_other_tensor_join]]
+==== join
+
+`join` は `join(tensor1, tensor2, f(x,y)(expr))` のように3つの引数を取り、
+第1引数と第2引数で与えられた2つのテンソルを、第3引数のラムダ式に基いて結合する、という動作をします。
+
+例えば、同一次元数の2つの行列に対して `join(matrix1, matrix2, f(x,y)(x * y))` とすると、
+これは
+https://ja.wikipedia.org/wiki/%E3%82%A2%E3%83%80%E3%83%9E%E3%83%BC%E3%83%AB%E7%A9%8D[アダマール積]
+を計算することを意味します。
+
+`reduce` は2つのテンソルがベクトルと行列のように次元数が異なる場合でも動作します。
+例えばベクトルと行列に対して `join` を適用すると、
+以下の例のようにベクトル側の不足している次元がワイルドカードとして扱われたような動作をします。
+
+[source]
+----
+t1 = {{x:0}: 1.0, {x:1}: 2.0}
+t2 = {{x:0,y:0}: 3.0, {x:0,y:1}: 4.0, {x:1,y:0}: 5.0, {x:1,y:1}: 6.0}
+
+join(t1, t2, f(x,y)(x * y)) = {{x:0,y:0}: 3.0, {x:0,y:1}: 4.0, {x:1,y:0}: 10.0, {x:1,y:1}: 12.0}
+----
+
+[[ranking_other_tensor_tensor]]
+==== tensor
+
+`tensor` は `tensor(tensor-type-spec)(expr)` のような形式で利用され、
+`tensor-type-spec` で指定された型のテンソルを、`expr` で指定された式に基いて初期化した新しいテンソルを生成する、という動作をします。
+
+`expr` は具体的には各次元のインデックス番号を引数とした式を記述し、例えば以下のような使い方をします。
+
+[source]
+----
+tensor(x[3])(x) = {{x:0}: 0.0, {x:1}: 1.0, {x:2}: 2.0}
+tensor(x[2],y[2])(x == y) = {{x:0,y:0}: 1.0, {x:0,y:1}: 0.0, {x:1,y:0}: 0.0, {x:1,y:1}: 1.0}
+----
+
+[[ranking_other_tensor_concat]]
+==== concat
+
+`concat` は `concat(tensor1, tensor2, dim)` のように3つの引数を取り、
+第1引数と第2引数で与えられた2つのテンソルを、第3引数の次元方向に結合する、という動作をします。
+
+イメージとしては第3引数の次元方向に2つのテンソルを並べる感じで、例えばベクトル同士の場合は以下のような結果となります。
+
+[source]
+----
+t1 = {{x:0}: 0.0, {x:1}: 1.0}
+t2 = {{x:0}: 2.0, {x:1}: 3.0}
+
+concat(t1,t2,x) = {{x:0}: 0.0, {x:1}: 1.0}, {x:2}: 2.0, {x:3}: 3.0}}
+----
+
+// add `zenkaku space + space + plus` like "　+" to force to new line
+　 +
+
+Vespa ではこれら基本操作に加え、`sum`、`relu`、`sigmoid`、`softmax` といった典型的な演算が拡張操作として定義されています。
+拡張操作の詳細は
+http://docs.vespa.ai/documentation/reference/tensor.html[Tensor Evaluation Reference]
+を参照してください (これら拡張操作は全て前述の基本操作を組み合わせで表現できます)。
+
+実際の例として、以下のような単純な3層ニューラルネットワークを考えてみます。
+
+image::vespa_nn_example.jpg[width=700, align="center"]
+
+Vespa の拡張操作も組み合わせると、上記ニューラルネットワークの計算は以下のような雰囲気のランク式で記述できます。
+
+[source]
+----
+macro h() {
+    expression: relu( sum(x * constant(W_ih), input) + constant(b_ih) )
+}
+
+macro y() {
+    expression: sigmoid( sum(h * constant(W_ho), hidden) + constant(b_ho) )
+}
+----
+
+このように、Vespa ではニューラルネットワークを用いたランク式も非常に直感的に記述できます。
+
+[NOTE]
+====
+上記ランク式では `constant` などここでは説明していない要素が含まれており、
+また `W_ih` といった定数値の宣言が省略されています。
+そのため、ここでは _"以下のような雰囲気のランク式"_ とお茶を濁した言い回しとしています。
+
+上記例は、具体的には Vespa の公式チュートリアルを元に記述しています。
+実際の完全な設定については、以下の公式チュートリアルを参照してください。
+
+* http://docs.vespa.ai/documentation/tutorials/blog-recommendation-nn.html[Vespa tutorial pt. 3: Blog recommendation with Neural Network models]
+====

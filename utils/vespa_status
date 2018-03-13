@@ -1,0 +1,58 @@
+#!/bin/bash
+#
+# Copyright 2018 Yahoo Japan Corporation.
+# Licensed under the terms of the MIT license.
+# See LICENSE in the project root.
+#
+
+set -u
+
+
+function check_status {
+    status=`curl -LI -s -o /dev/null -w '%{http_code}\n' "$1"`
+    if [ "${status}" == "200" ]; then
+        echo -e "[ \e[32mOK\e[m ]" 1>&2
+        return 0
+    else
+        echo -e "[ \e[31mNG\e[m ]" 1>&2
+        return 1
+    fi
+}
+
+function check_config {
+    echo -n "configuration server ...   " 1>&2
+    check_status http://localhost:19071/ApplicationStatus
+    return $?
+}
+
+function check_vespa1 {
+    echo -n "application server (vespa1) ...   " 1>&2
+    check_status http://localhost:8080/ApplicationStatus
+    return $?
+}
+
+function check_vespa2 {
+    echo -n "application server (vespa2) ...   " 1>&2
+    check_status http://localhost:8081/ApplicationStatus
+    return $?
+}
+
+function check_vespa3 {
+    echo -n "application server (vespa3) ...   " 1>&2
+    check_status http://localhost:8082/ApplicationStatus
+    return $?
+}
+
+
+declare -a targets=("config" "vespa1" "vespa2" "vespa3")
+if [ $# -ne 0 ]; then
+    targets=($@)
+fi
+
+ret=0
+for target in ${targets[@]}; do
+    eval "check_${target}"
+    ret=$((ret+$?))
+done
+
+exit ${ret}
