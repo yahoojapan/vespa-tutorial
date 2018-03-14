@@ -1,0 +1,3 @@
+docs/target
+sample-apps/plugin/*
+!sample-apps/plugin/setup.sh
