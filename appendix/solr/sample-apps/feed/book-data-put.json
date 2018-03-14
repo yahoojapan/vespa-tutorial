@@ -87,14 +87,14 @@
   "add": {
     "doc": {
       "id": "id:book:book::elasticsearch_science",
-      "title": "ElasticSearchで始めるデータサイエンス",
-      "desc": "ElasticSearchとデータサイエンスツールとの連携について紹介します",
+      "title": "Elasticsearchで始めるデータサイエンス",
+      "desc": "Elasticsearchとデータサイエンスツールとの連携について紹介します",
       "price": 3000,
       "page": 350,
       "genres": [
         "コンピュータ",
         "検索エンジン",
-        "ElasticSearch"
+        "Elasticsearch"
       ],
       "reviews.quality": 70,
       "reviews.readability": 20,

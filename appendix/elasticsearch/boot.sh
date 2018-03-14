@@ -15,10 +15,10 @@ function usage {
 }
 
 function start {
-    echo "<INFO> start a docker container for ElasticSearch" 1>&2
+    echo "<INFO> start a docker container for Elasticsearch" 1>&2
     sudo docker-compose up -d
 
-    echo "<INFO> wait until ElasticSearch becomes ready" 1>&2
+    echo "<INFO> wait until Elasticsearch becomes ready" 1>&2
     local status="0"
     for i in `seq 1 60`; do
         set +e
@@ -30,7 +30,7 @@ function start {
         sleep 1
     done
     if [ "${status}" != "200" ]; then
-        echo "<ERROR> ElasticSearch doesn't become ready after waiting 60 seconds"
+        echo "<ERROR> Elasticsearch doesn't become ready after waiting 60 seconds"
         return 1
     fi
 
@@ -47,7 +47,7 @@ function start {
 }
 
 function stop {
-    echo "<INFO> stop the running docker container for ElasticSearch" 1>&2
+    echo "<INFO> stop the running docker container for Elasticsearch" 1>&2
     sudo docker-compose down
 }
 

@@ -9,7 +9,7 @@ Vespa との動作比較のために、チュートリアルで用いた book �
 以下の代表的な OSS 検索エンジンを構築するサンプルを付録として添付しています。
 
 * [Solr](http://lucene.apache.org/solr/)
-* [ElasticSearch](https://www.elastic.co/jp/products/elasticsearch)
+* [Elasticsearch](https://www.elastic.co/jp/products/elasticsearch)
 
 なお、Vespa のサンプルと同様に、
 実行には `docker` 及び `docker-compose` が必要となります。
@@ -41,22 +41,22 @@ $ curl 'http://localhost:8983/solr/book/select?q=*:*&indent=true'
 http://localhost:8983
 ```
 
-## ElasticSearch
+## Elasticsearch
 
-ElasticSearch の起動停止は `elasticsearch/boot.sh` によって行います。
+Elasticsearch の起動停止は `elasticsearch/boot.sh` によって行います。
 
 ```bash
 // please move to elasticsearch directory first
 $ cd elasticsearch/
 
-// start ElasticSearch
+// start Elasticsearch
 $ ./boot.sh start
 
-// stop ElasticSearch
+// stop Elasticsearch
 $ ./boot.sh stop
 ```
 
-起動した ElasticSearch は `9200` ポートで検索を受け付けます。
+起動した Elasticsearch は `9200` ポートで検索を受け付けます。
 
 ```bash
 $ curl 'http://localhost:9200/book/_search?q=*:*&pretty=true'

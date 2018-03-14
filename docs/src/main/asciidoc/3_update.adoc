@@ -293,13 +293,13 @@ PutDocument:	ok: 13 msgs/sec: 46.93 failed: 0 ignored: 0 latency(min, max, avg):
 [TIP]
 ====
 `sddocname:book` は `book` インデックスのドキュメント全体について検索することを意味しています。
-SolrやElasticSearchでいうところの `q=\*:*` みたいなイメージです。
+Solr や Elasticsearch でいうところの `q=\*:*` みたいなイメージです。
 ====
 
 [NOTE]
 ====
 feed されたドキュメントはレスポンスが返った時点で検索から見えるようになります。
-また、トランザクションログのディスクへの書き出しの周期はOS依存となっていて、典型的には30秒程度で反映されます。
+また、トランザクションログのディスクへの書き出しの周期は OS 依存となっていて、典型的には 30 秒程度で反映されます。
 詳しくは
 http://docs.vespa.ai/documentation/content/consistency.html[Vespa consistency model]
 を参照してください。

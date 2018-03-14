@@ -9,7 +9,7 @@
 {"index": {"_index": "book", "_type": "book", "_id": "id:book:book::solr_service"}}
 {"title": "サービス事例で学ぶSolr活用術", "desc": "Solrをどうサービスで活用するか、実際の事例をベースに説明します", "price": 2500, "page": 250, "genres": ["コンピュータ", "検索エンジン", "Solr"], "reviews.quality": 50, "reviews.readability": 30, "reviews.cost": 60}
 {"index": {"_index": "book", "_type": "book", "_id": "id:book:book::elasticsearch_science"}}
-{"title": "ElasticSearchで始めるデータサイエンス", "desc": "ElasticSearchとデータサイエンスツールとの連携について紹介します", "price": 3000, "page": 350, "genres": ["コンピュータ", "検索エンジン", "ElasticSearch"], "reviews.quality": 70, "reviews.readability": 20, "reviews.cost": 60}
+{"title": "Elasticsearchで始めるデータサイエンス", "desc": "Elasticsearchとデータサイエンスツールとの連携について紹介します", "price": 3000, "page": 350, "genres": ["コンピュータ", "検索エンジン", "Elasticsearch"], "reviews.quality": 70, "reviews.readability": 20, "reviews.cost": 60}
 {"index": {"_index": "book", "_type": "book", "_id": "id:book:book::search_engine_history"}}
 {"title": "検索エンジン今昔物語", "desc": "検索エンジン技術の変遷について紹介します", "price": 1000, "page": 150, "genres": ["コンピュータ", "検索エンジン"], "reviews.quality": 30, "reviews.readability": 90, "reviews.cost": 90}
 {"index": {"_index": "book", "_type": "book", "_id": "id:book:book::java_intro"}}

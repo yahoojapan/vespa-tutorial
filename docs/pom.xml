@@ -10,7 +10,7 @@
 
   <groupId>jp.co.yahoo.vespa</groupId>
   <artifactId>vespa-tutorial-docs</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
 
   <name>vespa-tutorial-docs</name>
   <url>http://maven.apache.org</url>

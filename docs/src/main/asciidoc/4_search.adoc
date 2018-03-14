@@ -132,7 +132,7 @@ http://docs.vespa.ai/documentation/reference/simple-query-language-reference.htm
 
 [TIP]
 ====
-重み付き検索は Solr や ElasticSearch における `Boosting` に対応した機能となります。
+重み付き検索は Solr や Elasticsearch における `Boosting` に対応した機能となります。
 Vespa では百分率として重みを表現していて、デフォルト値は `100` です。
 この重みは後述のランキングのスコア計算に影響してきます。
 ====
@@ -418,9 +418,9 @@ search/?language=ja&query=sddocname:book&select=all(group(genres) each(max(1) ea
             "label": "genres",
             "children": [
               {
-                "id": "group:string:ElasticSearch",
+                "id": "group:string:Elasticsearch",
                 "relevance": 0,
-                "value": "ElasticSearch",
+                "value": "Elasticsearch",
                 "children": [
                   {
                     "id": "hitlist:hits",
@@ -433,8 +433,8 @@ search/?language=ja&query=sddocname:book&select=all(group(genres) each(max(1) ea
                         "source": "book",
                         "fields": {
                           "sddocname": "book",
-                          "title": "ElasticSearchで始めるデータサイエンス",
-                          "desc": "ElasticSearchとデータサイエンスツールとの連携について紹介します",
+                          "title": "Elasticsearchで始めるデータサイエンス",
+                          "desc": "Elasticsearchとデータサイエンスツールとの連携について紹介します",
                           "price": 3000,
                           ...
 ----

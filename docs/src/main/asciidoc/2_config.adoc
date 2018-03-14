@@ -270,7 +270,7 @@ Vespa のインデックス本体を持つノードで、
 ====
 Vespa ではインデックスを `bucket` という単位に分割し、
 それぞれを指定された冗長数に応じてクラスタ内に分配することで冗長性を担保しています。
-このため、Solr や ElasticSearch のような shard/replica 方式に比べてデータの分割が細かくなっています。
+このため、Solr や Elasticsearch のような shard/replica 方式に比べてデータの分割が細かくなっています。
 詳しくは
 <<6_clustering.adoc#clustering_distrib,ドキュメントの分散>>
 で紹介します。
@@ -508,7 +508,7 @@ http://docs.vespa.ai/documentation/reference/advanced-indexing-language.html[ind
 https://www.atilika.com/ja/kuromoji/[Kuromoji] はJavaで実装されたオープンソースの日本語形態素解析エンジンで、
 http://lucene.apache.org/solr/[Solr]
 や
-https://www.elastic.co/jp/products/elasticsearch[ElasticSearch]
+https://www.elastic.co/jp/products/elasticsearch[Elasticsearch]
 でも日本語トークナイザとして採用されています。
 
 [NOTE]

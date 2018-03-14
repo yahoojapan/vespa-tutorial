@@ -41,7 +41,7 @@ $ sudo chmod +x /usr/local/bin/docker-compose
 ## クイックスタート
 
 取り急ぎ Vespa の動作を確認したい場合は、以下のように `boot.sh` を用いて Vespa クラスタを構築することができます
-(Vespa クラスタの起動には *8GB* 程度のメモリが必要です、単体起動したい場合はチュートリアル資料を参考してください)。
+(Vespa クラスタの起動には *8GB* 程度のメモリが必要です、単体起動したい場合はチュートリアル資料を参照してください)。
 
 ```bash
 // please move to vespa-tutorial directory first
