@@ -521,7 +521,7 @@ table.CodeRay td.code>pre{padding:0}
 <div id="header">
 <h1>Vespaチュートリアル</h1>
 <div class="details">
-<span id="revnumber">version 1.0.1</span>
+<span id="revnumber">version 1.1.0</span>
 </div>
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
@@ -8484,26 +8484,48 @@ Solr/Elasticsearch では、この <code>softCommit</code> の間隔を制御す
 <h4 id="comparing_search_aggregation">7.2.1. 集約処理</h4>
 <div class="paragraph">
 <p>単純な検索機能については Vespa と Solr/Elasticsearch では大きな差はないですが、
-集約処理については Vespa と Solr/Elasticsearchで 差異があります。</p>
+集約処理については Vespa と Solr/Elasticsearch で差異があります。</p>
 </div>
 <div class="paragraph">
 <p>検索結果を羅列する <code>grouping</code> という観点では、
-Vespa は Solr/Elasticsearch に比べて高機能です。
-Vespa は
+Vespa と Elasticsearch については大きく差異はない印象です。
+Vespa なら
 <a href="#search_grouping">グルーピング検索</a>
 で紹介したように、
 <a href="http://docs.vespa.ai/documentation/reference/grouping-syntax.html">Query result grouping reference</a>
-に記載された DSL を用いて集約処理の動作を定義しますが、
-Solr/Elasticsearch ではできない
-「グルーピングのグルーピング」
-のような多階層のグルーピングをサポートしています。
-そのため、例えばショッピング検索を例にとると、
-「あるストアの商品をさらにカテゴリ毎にグループ分けしてそれぞれ上位3件を表示」
-のような細分化された検索結果を得ることが可能です。</p>
+に記載された DSL を用いて多段グルーピングができ、
+Elasticsearch も
+<a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations.html">Aggregations</a>
+の
+<a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations-metrics-top-hits-aggregation.html">top_hits</a>
+を組み合わせることで多段グルーピングが可能です。</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Solr は多段グルーピングをサポートしていません。
+また、
+<a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-collapse.html">Field Collapsing</a>
+については集約処理とは若干用途が異なるので議論の対象から外しています。</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>一方、グループ内でのソートでは、Vespa は
+<a href="#ranking">Vespa とランキング</a>
+で紹介した <code>rank-profile</code> の定義をそのままグループ内のリランキングに適用できるため、
+Solr/Elasticsearch に比べてグループ内の上位をより精度よく選択することができます。</p>
 </div>
 <div class="paragraph">
 <p>各グループの統計値といった特定の側面を計算する <code>faceting</code> という観点では、
-Vespa と Solr/Elasticsearch でそこまで大差はない (もしくは Solr/Elasticsearch の方が上？) と感じます。
+Solr/Elasticsearch の方が Vespa に比べて機能が豊富のように感じます。
 前述の DSL のお陰で Vespa は <code>faceting</code> でも様々な集約条件を定義できます。
 一方、Solr では
 <a href="https://lucene.apache.org/solr/guide/7_2/streaming-expressions.html">Streaming Expressions</a>
@@ -8520,7 +8542,7 @@ Vespa と Solr/Elasticsearch でそこまで大差はない (もしくは Solr/E
 <div class="paragraph">
 <p><a href="#search_other">その他の検索</a>
 で紹介したように、
-WAND 検索、ブーリアンインデックス、ストリーミング検索
+WAND 検索、Predicate フィールド
 と Vespa には Solr/Elasticsearch にはない検索機能があります。</p>
 </div>
 <div class="admonitionblock note">
@@ -8531,16 +8553,23 @@ WAND 検索、ブーリアンインデックス、ストリーミング検索
 </td>
 <td class="content">
 <div class="paragraph">
-<p>位置検索は Solr/Elasticsearch にもあります。</p>
+<p>位置検索は Solr/Elasticsearch にもあります。
+また、ストリーミング検索については Solr/Elasticsearch のワイルドカードクエリと対応します。</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
 <div class="paragraph">
-<p>単純な全文検索ではなかなか使うタイミングがない機能ですが、
-レコメンド、広告、メールなど具体的にターゲットを絞った場合、
-これらの機能の恩恵を受けられるケースがあるかもしれません。</p>
+<p>Predicate フィールドについては、Elasticsearch では
+<a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-percolate-query.html">Percolate Query</a>
+という似た機能が存在しますが、Percolate Query ではクエリをインデックスに登録して入力ドキュメントに対して当てるという動作なのに対し、
+Vespa の Predicate フィールドは各ドキュメントのフィールド値として条件式を埋め込むため、
+各ドキュメントを個別に制御できる点が異なります。</p>
+</div>
+<div class="paragraph">
+<p>これらの機能は単純な全文検索ではなかなか使うタイミングがありませんが、
+レコメンド、広告、メールなど具体的にターゲットを絞った場合に恩恵を受けられるケースがあるかもしれません。</p>
 </div>
 </div>
 </div>
@@ -8875,10 +8904,10 @@ Vespa は Solr/Elasticsearch に比べると実装難易度が高いです。</p
 <td class="tableblock halign-left valign-top"><div><div class="ulist">
 <ul>
 <li>
-<p>両方とも検索の基本機能はカバー</p>
+<p>両方とも検索・集約の基本機能はカバー</p>
 </li>
 <li>
-<p>Vespa の方がグルーピング処理が強力</p>
+<p>Vespa では WAND 検索のような高度な検索機能を提供</p>
 </li>
 <li>
 <p>インデクシングが Vespa の方が優秀</p>
@@ -8899,7 +8928,7 @@ Vespa は Solr/Elasticsearch に比べると実装難易度が高いです。</p
 <p>フェーズ制御が Vespa の方がしっかりしてる</p>
 </li>
 <li>
-<p>WAND 検索やテンソルなど Vespa の方が機能が先進的</p>
+<p>テンソルが使えるなど Vespa の方が先進的</p>
 </li>
 </ul>
 </div></div></td>
@@ -8965,7 +8994,7 @@ Vespa 自体の拡張性は JDisc のおかげで非常に高いのですが、
 </div>
 <div id="footer">
 <div id="footer-text">
-Version 1.0.1<br>
+Version 1.1.0<br>
 Last updated 2018-03-14 09:42:54 JST
 </div>
 </div>
