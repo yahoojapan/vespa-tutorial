@@ -521,7 +521,7 @@ table.CodeRay td.code>pre{padding:0}
 <div id="header">
 <h1>Vespaチュートリアル</h1>
 <div class="details">
-<span id="revnumber">version 1.0.0</span>
+<span id="revnumber">version 1.0.1</span>
 </div>
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
@@ -675,7 +675,7 @@ table.CodeRay td.code>pre{padding:0}
 </li>
 </ul>
 </li>
-<li><a href="#comparing">7. Solr/ElasticSearch との機能比較</a>
+<li><a href="#comparing">7. Solr/Elasticsearch との機能比較</a>
 <ul class="sectlevel2">
 <li><a href="#comparing_update">7.1. スキーマと更新</a>
 <ul class="sectlevel3">
@@ -1590,7 +1590,7 @@ Vespa のコード上で <code>Lingusitics</code> を Inject している箇所�
 <div class="paragraph">
 <p>Vespa ではインデックスを <code>bucket</code> という単位に分割し、
 それぞれを指定された冗長数に応じてクラスタ内に分配することで冗長性を担保しています。
-このため、Solr や ElasticSearch のような shard/replica 方式に比べてデータの分割が細かくなっています。
+このため、Solr や Elasticsearch のような shard/replica 方式に比べてデータの分割が細かくなっています。
 詳しくは
 <a href="#clustering_distrib">ドキュメントの分散</a>
 で紹介します。</p>
@@ -1987,7 +1987,7 @@ search book {
 <p><a href="https://www.atilika.com/ja/kuromoji/">Kuromoji</a> はJavaで実装されたオープンソースの日本語形態素解析エンジンで、
 <a href="http://lucene.apache.org/solr/">Solr</a>
 や
-<a href="https://www.elastic.co/jp/products/elasticsearch">ElasticSearch</a>
+<a href="https://www.elastic.co/jp/products/elasticsearch">Elasticsearch</a>
 でも日本語トークナイザとして採用されています。</p>
 </div>
 <div class="admonitionblock note">
@@ -2579,7 +2579,7 @@ PutDocument:        ok: 13 msgs/sec: 46.93 failed: 0 ignored: 0 latency(min, max
 <td class="content">
 <div class="paragraph">
 <p><code>sddocname:book</code> は <code>book</code> インデックスのドキュメント全体について検索することを意味しています。
-SolrやElasticSearchでいうところの <code>q=*:*</code> みたいなイメージです。</p>
+Solr や Elasticsearch でいうところの <code>q=*:*</code> みたいなイメージです。</p>
 </div>
 </td>
 </tr>
@@ -2594,7 +2594,7 @@ SolrやElasticSearchでいうところの <code>q=*:*</code> みたいなイメ�
 <td class="content">
 <div class="paragraph">
 <p>feed されたドキュメントはレスポンスが返った時点で検索から見えるようになります。
-また、トランザクションログのディスクへの書き出しの周期はOS依存となっていて、典型的には30秒程度で反映されます。
+また、トランザクションログのディスクへの書き出しの周期は OS 依存となっていて、典型的には 30 秒程度で反映されます。
 詳しくは
 <a href="http://docs.vespa.ai/documentation/content/consistency.html">Vespa consistency model</a>
 を参照してください。</p>
@@ -2866,7 +2866,7 @@ search/?language=ja&amp;query=入門書</code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>重み付き検索は Solr や ElasticSearch における <code>Boosting</code> に対応した機能となります。
+<p>重み付き検索は Solr や Elasticsearch における <code>Boosting</code> に対応した機能となります。
 Vespa では百分率として重みを表現していて、デフォルト値は <code>100</code> です。
 この重みは後述のランキングのスコア計算に影響してきます。</p>
 </div>
@@ -3271,9 +3271,9 @@ Vespa のグルーピング機能は他の検索エンジンに比べて高機�
             <span class="key"><span class="delimiter">&quot;</span><span class="content">label</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">genres</span><span class="delimiter">&quot;</span></span>,
             <span class="key"><span class="delimiter">&quot;</span><span class="content">children</span><span class="delimiter">&quot;</span></span>: [
               {
-                <span class="key"><span class="delimiter">&quot;</span><span class="content">id</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">group:string:ElasticSearch</span><span class="delimiter">&quot;</span></span>,
+                <span class="key"><span class="delimiter">&quot;</span><span class="content">id</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">group:string:Elasticsearch</span><span class="delimiter">&quot;</span></span>,
                 <span class="key"><span class="delimiter">&quot;</span><span class="content">relevance</span><span class="delimiter">&quot;</span></span>: <span class="integer">0</span>,
-                <span class="key"><span class="delimiter">&quot;</span><span class="content">value</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">ElasticSearch</span><span class="delimiter">&quot;</span></span>,
+                <span class="key"><span class="delimiter">&quot;</span><span class="content">value</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">Elasticsearch</span><span class="delimiter">&quot;</span></span>,
                 <span class="key"><span class="delimiter">&quot;</span><span class="content">children</span><span class="delimiter">&quot;</span></span>: [
                   {
                     <span class="key"><span class="delimiter">&quot;</span><span class="content">id</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">hitlist:hits</span><span class="delimiter">&quot;</span></span>,
@@ -3286,8 +3286,8 @@ Vespa のグルーピング機能は他の検索エンジンに比べて高機�
                         <span class="key"><span class="delimiter">&quot;</span><span class="content">source</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">book</span><span class="delimiter">&quot;</span></span>,
                         <span class="key"><span class="delimiter">&quot;</span><span class="content">fields</span><span class="delimiter">&quot;</span></span>: {
                           <span class="key"><span class="delimiter">&quot;</span><span class="content">sddocname</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">book</span><span class="delimiter">&quot;</span></span>,
-                          <span class="key"><span class="delimiter">&quot;</span><span class="content">title</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">ElasticSearchで始めるデータサイエンス</span><span class="delimiter">&quot;</span></span>,
-                          <span class="key"><span class="delimiter">&quot;</span><span class="content">desc</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">ElasticSearchとデータサイエンスツールとの連携について紹介します</span><span class="delimiter">&quot;</span></span>,
+                          <span class="key"><span class="delimiter">&quot;</span><span class="content">title</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">Elasticsearchで始めるデータサイエンス</span><span class="delimiter">&quot;</span></span>,
+                          <span class="key"><span class="delimiter">&quot;</span><span class="content">desc</span><span class="delimiter">&quot;</span></span>: <span class="string"><span class="delimiter">&quot;</span><span class="content">Elasticsearchとデータサイエンスツールとの連携について紹介します</span><span class="delimiter">&quot;</span></span>,
                           <span class="key"><span class="delimiter">&quot;</span><span class="content">price</span><span class="delimiter">&quot;</span></span>: <span class="integer">3000</span>,
                           <span class="error">.</span><span class="error">.</span><span class="error">.</span></code></pre>
 </div>
@@ -8267,7 +8267,7 @@ book/search/cluster.book/2
 </div>
 </div>
 <div class="sect1">
-<h2 id="comparing">7. Solr/ElasticSearch との機能比較</h2>
+<h2 id="comparing">7. Solr/Elasticsearch との機能比較</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>このセクションでは、Vespa と他の検索エンジンを比べて、
@@ -8306,9 +8306,9 @@ book/search/cluster.book/2
 <p>ここでは、比較対象として
 <a href="http://lucene.apache.org/solr/">Solr</a>
 と
-<a href="https://www.elastic.co/jp/products/elasticsearch">ElasticSearch</a>
+<a href="https://www.elastic.co/jp/products/elasticsearch">Elasticsearch</a>
 の2つを取り上げます。
-Solr と ElasticSearch は共に Lucene をコアとする検索エンジンで、
+Solr と Elasticsearch は共に Lucene をコアとする検索エンジンで、
 世界的にも多くの利用実績がある代表的な OSS の一つです。</p>
 </div>
 <div class="admonitionblock note">
@@ -8319,8 +8319,8 @@ Solr と ElasticSearch は共に Lucene をコアとする検索エンジンで�
 </td>
 <td class="content">
 <div class="paragraph">
-<p>チュートリアルには <code>appendix</code> にSolrとElasticSearchのDockerコンテナの設定があります。
-それぞれのディレクトリに配置された <code>boot.sh</code> を実行することでVespaと同じドキュメントを含むSolrおよびElasticSearchを起動できます。
+<p>チュートリアルには <code>appendix</code> に Solr と Elasticsearch の Docker コンテナの設定があります。
+それぞれのディレクトリに配置された <code>boot.sh</code> を実行することで Vespa と同じドキュメントを含む Solr および Elasticsearch を起動できます。
 詳しいコマンドは <code>appendix</code> にある <code>README.md</code> を参照してください。</p>
 </div>
 </td>
@@ -8332,14 +8332,14 @@ Solr と ElasticSearch は共に Lucene をコアとする検索エンジンで�
 <div class="sect3">
 <h4 id="comparing_update_dynamic">7.1.1. 動的フィールド</h4>
 <div class="paragraph">
-<p>Solr/ElasticSearch と Vespa のスキーマ定義を比較したとき、
+<p>Solr/Elasticsearch と Vespa のスキーマ定義を比較したとき、
 大きな違いの一つとして動的フィールドのサポートの有無があります。</p>
 </div>
 <div class="paragraph">
 <p>Solr では <code>dynamic fields</code> を、
-ElasticSearch では <code>dynamic templates</code> を使ってインデックスされたフィールド名に応じて動的にフィールドを追加することができます。
-この機能によって、Solr/ElasticSearch ではスキーマに縛られにくい柔軟なインデクシングを可能としています。
-特に、ElasticSearch では
+Elasticsearch では <code>dynamic templates</code> を使ってインデックスされたフィールド名に応じて動的にフィールドを追加することができます。
+この機能によって、Solr/Elasticsearch ではスキーマに縛られにくい柔軟なインデクシングを可能としています。
+特に、Elasticsearch では
 <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/object.html">Object datetype</a>
 のようにかなり自由なデータをインデクシングできるのが特徴です。</p>
 </div>
@@ -8351,7 +8351,7 @@ ElasticSearch では <code>dynamic templates</code> を使ってインデック�
 <p>サービスとして検索エンジンを使う場合、
 一般的にスキーマ設計を行うはずなので双方であまり差異はありませんが、
 データストアとして検索エンジンを使う場合は、
-動的フィールドが可能な Solr/ElasticSearch の方が柔軟性が高いと考えられます。</p>
+動的フィールドが可能な Solr/Elasticsearch の方が柔軟性が高いと考えられます。</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -8373,7 +8373,7 @@ ElasticSearch では <code>dynamic templates</code> を使ってインデック�
 <div class="sect3">
 <h4 id="comparing_update_type">7.1.2. データ型</h4>
 <div class="paragraph">
-<p>Vespa、Solr/ElasticSearch ともに基本的なデータ型については大きな差異はありません。
+<p>Vespa、Solr/Elasticsearch ともに基本的なデータ型については大きな差異はありません。
 2つで動作が大きく異なるケースとして、配列のような多次元の値を扱う場合があげられます。</p>
 </div>
 <div class="paragraph">
@@ -8390,11 +8390,11 @@ Vespa での複数値は、
 近年注目を集めている分散表現やディープライーニングといった先進技術との親和性が高いことも大きなポイントです。</p>
 </div>
 <div class="paragraph">
-<p>一方、Solr/ElasticSearch の場合、配列型以外については設計を工夫する必要があります。
+<p>一方、Solr/Elasticsearch の場合、配列型以外については設計を工夫する必要があります。
 チュートリアルの例では、前述の動的フィールドを用いてマッピングを行うことで Vespa の <code>weightedset</code> の代替としています。
 この方法では、キーとなる新しい値が登録されるたびに裏側では新しいフィールドが定義されることとなるため、
 キーのバリエーションが非常に多いケースを扱うことが困難です。
-また、高次元ベクトルを検索で扱う場合に、Solr/ElasticSearch ではまだ適切なデータ型がないように感じます。</p>
+また、高次元ベクトルを検索で扱う場合に、Solr/Elasticsearch ではまだ適切なデータ型がないように感じます。</p>
 </div>
 <div class="admonitionblock tip">
 <table>
@@ -8404,7 +8404,7 @@ Vespa での複数値は、
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Solr/ElasticSearch の配列は、インデックス上では投入順序が保持されないという特徴があります。
+<p>Solr/Elasticsearch の配列は、インデックス上では投入順序が保持されないという特徴があります。
 これは、内部で利用している Lucene の <code>docValues</code> というデータストアが、
 複数値を登録する時にソートして値を保持するという制約があるためです。
 そのため、Vespa のようにインデックス指定で値を取得する、ということができません。</p>
@@ -8421,7 +8421,7 @@ Vespa での複数値は、
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Solr/ElasticSearch でも拡張フィールドを独自実装すれば、<code>weightedset</code> のような型を作ることは一応可能です。
+<p>Solr/Elasticsearch でも拡張フィールドを独自実装すれば、<code>weightedset</code> のような型を作ることは一応可能です。
 ただし、スコア計算との連携なども考えた場合、ランキング部分についても拡張が必要になります。</p>
 </div>
 </td>
@@ -8432,12 +8432,12 @@ Vespa での複数値は、
 <div class="sect3">
 <h4 id="comparing_update_realtime">7.1.3. リアルタイム性</h4>
 <div class="paragraph">
-<p>Solr/ElasticSearch の基盤となっている Lucene では、
+<p>Solr/Elasticsearch の基盤となっている Lucene では、
 <code>softCommit</code> と <code>hardCommit</code> という2つのコミットによってインデックスを管理します。
 前者は更新内容を検索できるようにするもの、後者は更新内容をディスクに永続化するものに対応します。
-Solr/ElasticSearch では、この <code>softCommit</code> の間隔を制御することで Near Real Time (NRT) 検索を実現しています (
+Solr/Elasticsearch では、この <code>softCommit</code> の間隔を制御することで Near Real Time (NRT) 検索を実現しています (
 <a href="https://lucene.apache.org/solr/guide/7_2/near-real-time-searching.html">Solr</a>、
-<a href="https://www.elastic.co/guide/en/elasticsearch/guide/current/near-real-time.html">ElasticSearch</a>
+<a href="https://www.elastic.co/guide/en/elasticsearch/guide/current/near-real-time.html">Elasticsearch</a>
 )。
 より高いリアルタイム性が必要な場合、この <code>softCommit</code> の間隔をチューニングすることになりますが、
 <code>softCommit</code> では <code>Searcher</code> と呼ばれる検索を担当するインスタンスの再生成が走るため、
@@ -8483,18 +8483,18 @@ Solr/ElasticSearch では、この <code>softCommit</code> の間隔を制御す
 <div class="sect3">
 <h4 id="comparing_search_aggregation">7.2.1. 集約処理</h4>
 <div class="paragraph">
-<p>単純な検索機能については Vespa と Solr/ElasticSearch では大きな差はないですが、
-集約処理については Vespa と Solr/ElasticSearchで 差異があります。</p>
+<p>単純な検索機能については Vespa と Solr/Elasticsearch では大きな差はないですが、
+集約処理については Vespa と Solr/Elasticsearchで 差異があります。</p>
 </div>
 <div class="paragraph">
 <p>検索結果を羅列する <code>grouping</code> という観点では、
-Vespa は Solr/ElasticSearch に比べて高機能です。
+Vespa は Solr/Elasticsearch に比べて高機能です。
 Vespa は
 <a href="#search_grouping">グルーピング検索</a>
 で紹介したように、
 <a href="http://docs.vespa.ai/documentation/reference/grouping-syntax.html">Query result grouping reference</a>
 に記載された DSL を用いて集約処理の動作を定義しますが、
-Solr/ElasticSearch ではできない
+Solr/Elasticsearch ではできない
 「グルーピングのグルーピング」
 のような多階層のグルーピングをサポートしています。
 そのため、例えばショッピング検索を例にとると、
@@ -8503,12 +8503,12 @@ Solr/ElasticSearch ではできない
 </div>
 <div class="paragraph">
 <p>各グループの統計値といった特定の側面を計算する <code>faceting</code> という観点では、
-Vespa と Solr/ElasticSearch でそこまで大差はない (もしくは Solr/ElasticSearch の方が上？) と感じます。
+Vespa と Solr/Elasticsearch でそこまで大差はない (もしくは Solr/Elasticsearch の方が上？) と感じます。
 前述の DSL のお陰で Vespa は <code>faceting</code> でも様々な集約条件を定義できます。
 一方、Solr では
 <a href="https://lucene.apache.org/solr/guide/7_2/streaming-expressions.html">Streaming Expressions</a>
 を用いることで、検索結果をストリーミング処理の要領で細かく加工することが可能です。
-また、ElasticSearch も
+また、Elasticsearch も
 <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations.html">Aggregations</a>
 で紹介されているような多くの集約処理があったり、
 <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-scripting.html">Scripting</a>
@@ -8521,7 +8521,7 @@ Vespa と Solr/ElasticSearch でそこまで大差はない (もしくは Solr/E
 <p><a href="#search_other">その他の検索</a>
 で紹介したように、
 WAND 検索、ブーリアンインデックス、ストリーミング検索
-と Vespa には Solr/ElasticSearch にはない検索機能があります。</p>
+と Vespa には Solr/Elasticsearch にはない検索機能があります。</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -8531,7 +8531,7 @@ WAND 検索、ブーリアンインデックス、ストリーミング検索
 </td>
 <td class="content">
 <div class="paragraph">
-<p>位置検索は Solr/ElasticSearch にもあります。</p>
+<p>位置検索は Solr/Elasticsearch にもあります。</p>
 </div>
 </td>
 </tr>
@@ -8557,7 +8557,7 @@ WAND 検索、ブーリアンインデックス、ストリーミング検索
 <p>ランキングは OSS で利用できる範囲での比較になります。
 そのため、Solr の有償プロダクトである
 <a href="https://lucidworks.com/products/">Fusion</a>
-や、ElasticSearch の有償の
+や、Elasticsearch の有償の
 <a href="https://www.elastic.co/jp/products/x-pack">X-PACK</a>
 で提供されている機能については対象外としています。</p>
 </div>
@@ -8571,13 +8571,13 @@ WAND 検索、ブーリアンインデックス、ストリーミング検索
 <p>検索エンジンのコア機能を使って任意のスコア式を記述する場合、
 Solr は
 <a href="https://lucene.apache.org/solr/guide/7_2/function-queries.html">FunctionQuery</a>
-を、ElasticSearch は
+を、Elasticsearch は
 <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-function-score-query.html#score-functions">FunctionScoreQuery</a>
 を用いてスコアを定義します。
-また、最近では上位の結果をリランキングするプラグインとして Solr と ElasticSearch それぞれで
+また、最近では上位の結果をリランキングするプラグインとして Solr と Elasticsearch それぞれで
 LTR (Learning To Rank) プラグインが提供されています (
 <a href="https://lucene.apache.org/solr/guide/7_2/learning-to-rank.html">Solr</a>、
-<a href="http://elasticsearch-learning-to-rank.readthedocs.io/en/latest/">ElasticSearch</a>
+<a href="http://elasticsearch-learning-to-rank.readthedocs.io/en/latest/">Elasticsearch</a>
 )。</p>
 </div>
 <div class="admonitionblock tip">
@@ -8600,11 +8600,11 @@ LTR (Learning To Rank) プラグインが提供されています (
 <p>Vespa の
 <a href="#ranking_phase">ランキングの流れ</a>
 と対応させると、
-Solr の <code>FunctionQuery</code> および ElasticSearch の <code>FunctionScoreQuery</code> が <code>first-phase</code> に、
+Solr の <code>FunctionQuery</code> および Elasticsearch の <code>FunctionScoreQuery</code> が <code>first-phase</code> に、
 LTRプラグインが <code>second-phase</code> に対応します。</p>
 </div>
 <div class="paragraph">
-<p>このように、Solr と ElasticSearch では2つのフェーズのランキングが別の機能として提供されます。
+<p>このように、Solr と Elasticsearch では2つのフェーズのランキングが別の機能として提供されます。
 そのため、2つのフェーズでスコア式を記述する場合、別々に定義を書かなくてはならないというのがネックです。
 それに対して、Vespa は <code>rank-profile</code> に全てまとめて定義できるため、
 ランキングの定義は Vespa の方がスッキリしています。</p>
@@ -8616,7 +8616,7 @@ LTRプラグインが <code>second-phase</code> に対応します。</p>
 <p>単純な記述の自由度という観点では、
 最も自由度が高いのは
 <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-scripting.html">Scripting</a>
-を用いて Groovy ライクに書けるElasticSearchの <code>Function Score Query</code> かと思います。
+を用いて Groovy ライクに書ける Elasticsearch の <code>Function Score Query</code> かと思います。
 ただし、<code>Scripting</code> ではいわゆる素性が扱えないため、
 高度なモデルを定義したい場合にネックになると考えられます。</p>
 </div>
@@ -8637,7 +8637,7 @@ LTRプラグインが <code>second-phase</code> に対応します。</p>
 </table>
 </div>
 <div class="paragraph">
-<p>一方、Solr と ElasticSearch の LTR プラグインでは、
+<p>一方、Solr と Elasticsearch の LTR プラグインでは、
 検索クエリを素性として定義できるため、より精度の高いモデルを定義できます。
 ただ、こちらはデフォルトで利用できるモデルの型が線形モデルとアンサンブル木に限定されており、
 チュートリアルの <code>price_boost</code> のような独自の数式を書きたい場合は、
@@ -8668,7 +8668,7 @@ Vespa の持つ高度なランキング機能の一つと捉えることがで�
 </div>
 <div class="paragraph">
 <p>WAND 検索については、
-Solr/ElasticSearch でも payload でテキストの単語に重みを埋め込み、
+Solr/Elasticsearch でも payload でテキストの単語に重みを埋め込み、
 検索クエリにブースト値を付与してスコア計算に組み込めば似たようなことは可能です。
 ただし、WAND 検索のような賢い枝刈りアルゴリズムがないため、Vespa より速度がでないと思います。</p>
 </div>
@@ -8700,22 +8700,22 @@ Solr/ElasticSearch でも payload でテキストの単語に重みを埋め込�
 <p>Vepsa は
 <a href="#clustering_distrib">ドキュメントの分散</a>
 でも述べたように、ドキュメントを <code>bucket</code> という細かい粒度で分散させるのが特徴で、
-ここは Solr/ElasticSearch と大きく異なる点の一つです。</p>
+ここは Solr/Elasticsearch と大きく異なる点の一つです。</p>
 </div>
 <div class="paragraph">
-<p>Solr/ElasticSearch では、クラスタ上でのインデックスの分割数 (シャード数) を事前に決めて分散インデクシングを行います。
+<p>Solr/Elasticsearch では、クラスタ上でのインデックスの分割数 (シャード数) を事前に決めて分散インデクシングを行います。
 このシャード数は、一度決めると容易にその数を変更することができず、
 変更する場合はシャードの分割やインデックスの再構築が必要となります。</p>
 </div>
 <div class="paragraph">
 <p>一方、Vespa は <code>bucket</code> というより細かい粒度でドキュメントを管理しており、
 その分割数も状況によって増減します。
-そのため、ユーザはインデックスの冗長数 (Solr/ElasticSearch のレプリカ数) だけを意識すればよく、
+そのため、ユーザはインデックスの冗長数 (Solr/Elasticsearch のレプリカ数) だけを意識すればよく、
 分散インデクシングの管理が非常に容易かつ効率的に行うことができます。</p>
 </div>
 <div class="paragraph">
 <p>ドキュメントを細かい粒度で分散させることは、障害時のパフォーマンスという観点でも有意性があります。
-Solr/ElasticSearch の場合、特定のノードがダウンすると、
+Solr/Elasticsearch の場合、特定のノードがダウンすると、
 本来そのノードが処理するはずだったリクエストを対応するレプリカを持つノード群が肩代わりします。
 そのため、障害時に特定のノードのリクエスト数が <code>1 + 1/#replicas</code> 倍に増加することになります。
 一方、Vespa の場合、特定のノードがダウンしたとしても、対になる <code>bucket</code> はクラスタ全体に分散しているため、
@@ -8731,9 +8731,9 @@ Solr/ElasticSearch の場合、特定のノードがダウンすると、
 Vespa では非常に簡単に行うことができます。</p>
 </div>
 <div class="paragraph">
-<p>Solr/ElasticSearch の場合、前述のようにシャード数が変更できないため、
+<p>Solr/Elasticsearch の場合、前述のようにシャード数が変更できないため、
 ノードの増減にあわせてシャード/レプリカ単位での再分配を行うことになります。
-この作業は、ElasticSearch の場合、再分配は自動で行われますが、Solr の場合は現状手作業で行う必要があります。
+この作業は、Elasticsearch の場合、再分配は自動で行われますが、Solr の場合は現状手作業で行う必要があります。
 シャード自体の分割が困難なため、ノード追加・削除が発生した場合、
 場合によってはシャード数を再設計して再インデックスする必要があります。</p>
 </div>
@@ -8742,7 +8742,7 @@ Vespa では非常に簡単に行うことができます。</p>
 <a href="#clustering_setup_deploy">クラスタ設定の反映</a>
 の例で示したように、<code>services.xml</code> と <code>hosts.xml</code> に追加・削除するノードの情報を追記して反映させるだけで、
 Vespa が <code>bucket</code> の再分配を行ってくれます。
-また、Solr/ElasticSearch のようにシャード数を気にする必要もないため、
+また、Solr/Elasticsearch のようにシャード数を気にする必要もないため、
 カジュアルにノードの増減を行うことが可能です。</p>
 </div>
 </div>
@@ -8752,17 +8752,17 @@ Vespa が <code>bucket</code> の再分配を行ってくれます。
 <div class="sect3">
 <h4 id="comparing_extensibility_language">7.5.1. 多言語対応</h4>
 <div class="paragraph">
-<p>多言語対応という点では、現状 Vespa は Solr/ElasticSearch に比べると大きく差があります。</p>
+<p>多言語対応という点では、現状 Vespa は Solr/Elasticsearch に比べると大きく差があります。</p>
 </div>
 <div class="paragraph">
-<p>Solr/ElasticSearch は世界的に利用実績があるため、現状で多くの言語をサポートしています。
-また、Solr/ElasticSearch の言語処理は、
+<p>Solr/Elasticsearch は世界的に利用実績があるため、現状で多くの言語をサポートしています。
+また、Solr/Elasticsearch の言語処理は、
 入力文字列の1文字1文字に変換を加える <code>CharFilter</code>、
 文字列をトークン分けする <code>Tokenizer</code>、
 トークン毎に変換を加える <code>TokenFilter</code>
 の3つのクラスの組み合わせによって定義されます (
 <a href="https://lucene.apache.org/solr/guide/7_2/understanding-analyzers-tokenizers-and-filters.html">Solr</a>、
-<a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/analyzer-anatomy.html">ElasticSearch</a>
+<a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/analyzer-anatomy.html">Elasticsearch</a>
 )。
 そのため、これらの組み合わせ方によって言語処理フローを柔軟に構築できるというのも特徴の一つです。</p>
 </div>
@@ -8771,7 +8771,7 @@ Vespa が <code>bucket</code> の再分配を行ってくれます。
 Vespa では
 <a href="http://docs.vespa.ai/documentation/linguistics.html">Linguistics</a>
 というクラスを拡張することで対応言語を増やすことができます。
-Solr/ElasticSearch とは異なり、
+Solr/Elasticsearch とは異なり、
 Vespa ではステミングや正規化といった処理も <code>Lingusitics</code> の中に内包させます。
 幸い、今回使用した <code>KuromojiLinguistics</code> のように、
 既存のパッケージを組み合わせれば対応自体はそこまで難しくはないので、
@@ -8781,10 +8781,10 @@ Vespa ではステミングや正規化といった処理も <code>Lingusitics</
 <div class="sect3">
 <h4 id="comparing_extensibility_plugin">7.5.2. プラグインの追加</h4>
 <div class="paragraph">
-<p>Solr/ElasticSearch は、
+<p>Solr/Elasticsearch は、
 世の中にサードパーティ製のプラグインがたくさんあることからも分かるように、
 拡張性が高い検索エンジンとなっています。
-また、Solr/ElasticSearch は Pure Java で実装された検索エンジンなので、
+また、Solr/Elasticsearch は Pure Java で実装された検索エンジンなので、
 機能開発の敷居も比較的低いといえます。</p>
 </div>
 <div class="paragraph">
@@ -8823,14 +8823,14 @@ Vespa ではステミングや正規化といった処理も <code>Lingusitics</
 と呼ばれる C++ のパッケージとなっており、
 こちらに機能を追加したい場合はコードを実装して再ビルドする必要があります。
 そのため、検索コアの深いところまで手を加えたい場合、
-Vespa は Solr/ElasticSearch に比べると実装難易度が高いです。</p>
+Vespa は Solr/Elasticsearch に比べると実装難易度が高いです。</p>
 </div>
 </div>
 </div>
 <div class="sect2">
 <h3 id="comparing_summary">7.6. まとめ</h3>
 <div class="paragraph">
-<p>ここまで述べてきた Vespa と Solr/ElasticSearch の特徴を、
+<p>ここまで述べてきた Vespa と Solr/Elasticsearch の特徴を、
 <a href="http://vespa.ai/">公式サイト</a>
 の表のようにまとめると以下のようになります。</p>
 </div>
@@ -8845,7 +8845,7 @@ Vespa は Solr/ElasticSearch に比べると実装難易度が高いです。</p
 <tr>
 <th class="tableblock halign-center valign-top">特徴</th>
 <th class="tableblock halign-center valign-top">Vespa</th>
-<th class="tableblock halign-center valign-top">Solr/ElasticSearch</th>
+<th class="tableblock halign-center valign-top">Solr/Elasticsearch</th>
 <th class="tableblock halign-center valign-top">備考</th>
 </tr>
 </thead>
@@ -8857,10 +8857,10 @@ Vespa は Solr/ElasticSearch に比べると実装難易度が高いです。</p
 <td class="tableblock halign-left valign-top"><div><div class="ulist">
 <ul>
 <li>
-<p>Solr/ElasticSearch は動的フィールドが使える</p>
+<p>Solr/Elasticsearch は動的フィールドが使える</p>
 </li>
 <li>
-<p>Solr/ElasticSearch の方が解析処理が充実してる印象</p>
+<p>Solr/Elasticsearch の方が解析処理が充実してる印象</p>
 </li>
 <li>
 <p>Elastic Stack のように周辺パッケージも充実</p>
@@ -8917,7 +8917,7 @@ Vespa は Solr/ElasticSearch に比べると実装難易度が高いです。</p
 <p>ノード増減時のインデックス調整が Vespa の方が楽</p>
 </li>
 <li>
-<p>Solr/ElasticSearch はシャード数が変更しづらい</p>
+<p>Solr/Elasticsearch はシャード数が変更しづらい</p>
 </li>
 </ul>
 </div></div></td>
@@ -8929,7 +8929,7 @@ Vespa は Solr/ElasticSearch に比べると実装難易度が高いです。</p
 <td class="tableblock halign-left valign-top"><div><div class="ulist">
 <ul>
 <li>
-<p>Solr/ElasticSearch の方が敷居は低め</p>
+<p>Solr/Elasticsearch の方が敷居は低め</p>
 </li>
 <li>
 <p>Vespa も自由度は高いが検索コアがいじりにくい</p>
@@ -8947,14 +8947,14 @@ Vespa は Solr/ElasticSearch に比べると実装難易度が高いです。</p
 逆に、データ解析での利用を検討している場合は、Elastic Stack のようなパッケージを利用した方が効率的かと思います。</p>
 </div>
 <div class="paragraph">
-<p>機能面では、まずランキング機能が Solr/ElasticSearch と比べてかなり先進的で、
+<p>機能面では、まずランキング機能が Solr/Elasticsearch と比べてかなり先進的で、
 特にテンソルが扱えることで、近年話題の Deep Learning 系の技術を取り込める点は大きな強みです。
 また、ドキュメント分散の仕組みが賢く、スケールアウトが容易な点も、
 特に大規模なクラスタを組むようなケースで大きなポイントになるかと思います。</p>
 </div>
 <div class="paragraph">
 <p>一方、拡張性という観点では、OSS としてまだ若いこともあり、
-Solr/ElasticSearch に比べてサードパーティ製のプラグインなどのオプションが少ないところはネックかと思います。
+Solr/Elasticsearch に比べてサードパーティ製のプラグインなどのオプションが少ないところはネックかと思います。
 Vespa 自体の拡張性は JDisc のおかげで非常に高いのですが、
 個人的には検索コアに手が入れにくいところが気になる部分で、
 このため拡張性については公式サイトと優劣を逆につけています。</p>
@@ -8965,8 +8965,8 @@ Vespa 自体の拡張性は JDisc のおかげで非常に高いのですが、
 </div>
 <div id="footer">
 <div id="footer-text">
-Version 1.0.0<br>
-Last updated 2018-03-13 18:22:08 JST
+Version 1.0.1<br>
+Last updated 2018-03-14 09:42:54 JST
 </div>
 </div>
 <!--
